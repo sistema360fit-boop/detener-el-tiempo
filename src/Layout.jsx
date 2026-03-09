@@ -28,121 +28,128 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { getCurrentUser, getDefaultPage, canAccessPage } from "@/lib/roles";
 
 const navigationItems = [
   {
     title: "Dashboard",
     url: createPageUrl("Dashboard"),
     icon: LayoutDashboard,
-    roles: ['administrador', 'cajero', 'visualizador']
+    roles: ['administrador']
+  },
+  {
+    title: "Punto de Venta",
+    url: createPageUrl("ProcesarVenta"),
+    icon: ShoppingCart,
+    roles: ['cajero', 'administrador']
   },
   {
     title: "Comandas",
     url: createPageUrl("Comandas"),
     icon: ChefHat,
-    roles: ['mesero', 'administrador', 'cajero']
+    roles: ['mesero', 'administrador']
   },
   {
     title: "Cocina",
     url: createPageUrl("Cocina"),
     icon: ChefHat,
-    roles: ['cocinero']
+    roles: ['cocinero', 'administrador']
   },
   {
     title: "Ingredientes",
     url: createPageUrl("Ingredientes"),
     icon: Package,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Recetas Primarias",
     url: createPageUrl("RecetasPrimarias"),
     icon: ChefHat,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Recetas Secundarias",
     url: createPageUrl("RecetasSecundarias"),
     icon: ChefHat,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Platos",
     url: createPageUrl("Platos"),
     icon: UtensilsCrossed,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Compras",
     url: createPageUrl("ComprasIngredientes"),
     icon: ShoppingCart,
-    roles: ['administrador', 'cajero', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Gastos",
     url: createPageUrl("Gastos"),
     icon: DollarSign,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Adelantos",
     url: createPageUrl("Adelantos"),
     icon: DollarSign,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Reportes",
     url: createPageUrl("Reportes"),
     icon: TrendingUp,
-    roles: ['administrador', 'cajero', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Estado de Cuenta",
     url: createPageUrl("EstadosCuenta"),
     icon: TrendingUp,
-    roles: ['administrador', 'cajero', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Alertas de Stock",
     url: createPageUrl("Alertas"),
     icon: AlertTriangle,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Empleados",
     url: createPageUrl("Empleados"),
     icon: Users,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Tasas de Cambio",
     url: createPageUrl("GestionTasas"),
     icon: DollarSign,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Reportes Diarios",
     url: createPageUrl("ReportesDiarios"),
     icon: TrendingUp,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Reporte Mensual",
     url: createPageUrl("ReporteMensual"),
     icon: TrendingUp,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Cuentas por Cobrar",
     url: createPageUrl("CuentasPorCobrar"),
     icon: FileText,
-    roles: ['administrador', 'cajero', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Retención de Datos",
     url: createPageUrl("ConfiguracionRetencion"),
     icon: DollarSign,
-    roles: ['administrador', 'visualizador']
+    roles: ['administrador']
   },
   {
     title: "Reset Sistema",
@@ -160,17 +167,24 @@ export default function Layout({ children, currentPageName }) {
   const [tasaUSDActual, setTasaUSDActual] = useState(null);
 
   useEffect(() => {
-    const empleado = localStorage.getItem('empleado_sesion');
-    if (empleado) {
-      const empleadoData = JSON.parse(empleado);
-      setEmpleadoSesion(empleadoData);
+    // Usar el sistema centralizado de roles
+    const user = getCurrentUser();
+    
+    if (user) {
+      setEmpleadoSesion(user);
       
-      // Redirigir cocineros directamente a Cocina
-      if (empleadoData.rol === 'cocinero' && currentPageName !== "Cocina") {
-        navigate(createPageUrl("Cocina"));
+      // Redirigir según el rol - solo pueden acceder a su página designada
+      const destino = getDefaultPage(user.rol);
+      
+      // Si intenta acceder a otra página, redirigir a su página designada
+      if (destino && currentPageName !== destino && currentPageName !== "Acceso") {
+        // Verificar si tiene permiso para la página actual
+        if (!canAccessPage(currentPageName, user.rol)) {
+          navigate(createPageUrl(destino));
+        }
       }
     } else if (currentPageName !== "Acceso") {
-      // Si no hay sesión, redirigir a login (excepto si ya está en Acceso)
+      // Si no hay sesión, redirigir a login
       navigate(createPageUrl("Acceso"));
     }
 

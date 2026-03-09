@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { getDefaultPage } from "@/lib/roles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,14 +14,9 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const LS_KEY_SESSION = "empleado_sesion";
 
+// Usar función centralizada para obtener página por defecto
 function redirectByRole(navigate, rol) {
-  const destinos = {
-    mesero: "Comandas",
-    cocinero: "Comandas",
-    cajero: "ProcesarVenta",
-    administrador: "Dashboard",
-  };
-  const page = destinos[(rol || "administrador").toLowerCase()] || "Dashboard";
+  const page = getDefaultPage(rol);
   navigate(createPageUrl(page), { replace: true });
 }
 

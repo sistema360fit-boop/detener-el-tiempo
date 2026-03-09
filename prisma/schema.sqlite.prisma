@@ -220,8 +220,11 @@ model TasaCambio {
 
 model Usuario {
   id        String   @id @default(uuid())
-  usuario   String   @unique
-  clave     String
+  email     String   @unique
+  password  String
+  nombre    String
+  rol       String   @default("administrador")
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
+  sesiones  SesionUsuario[]
 }

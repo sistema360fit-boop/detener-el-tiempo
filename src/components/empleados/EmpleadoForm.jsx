@@ -31,45 +31,39 @@ export default function EmpleadoForm({ empleado, onSubmit, onCancel, isLoading }
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Si es nuevo empleado o tiene contraseña, crear/actualizar usuario en la API
-    if (formData.password && formData.email) {
+    // Si es nuevo empleado y tiene contraseña, guardar en base de datos
+    if (!empleado && formData.password && formData.email) {
       setSavingUser(true);
       try {
-        const endpoint = empleado?.id ? '/api/usuarios' : '/api/auth/register';
-        const method = empleado?.id ? 'PUT' : 'POST';
-        
-        const res = await fetch(`${API_URL}${endpoint}`, {
-          method,
+        const res = await fetch(`${API_URL}/auth/register`, {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            id: empleado?.id,
             email: formData.email,
             password: formData.password,
             nombre: formData.nombre_completo,
-            rol: formData.rol,
-            activo: formData.activo
+            rol: formData.rol
           }),
         });
         
-        const data = await res.json();
-        
         if (!res.ok) {
-          toast.error(data.error || "Error al guardar usuario");
+          const data = await res.json();
+          toast.error(data.error || "Error al guardar usuario en BD");
           setSavingUser(false);
           return;
         }
         
-        toast.success("Usuario guardado correctamente");
+        toast.success("Usuario guardado en el sistema");
       } catch (err) {
         console.error("Error saving user:", err);
-        toast.error("Error de conexión");
+        toast.error("Error de conexión con el servidor");
         setSavingUser(false);
         return;
       }
       setSavingUser(false);
     }
     
-    // Continuar con el submit normal (local storage)
+    // Guardar en localStorage
     onSubmit(formData);
   };
 

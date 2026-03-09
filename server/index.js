@@ -7,7 +7,14 @@ import bcrypt from 'bcryptjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const prisma = new PrismaClient();
+// Usar SQLite local con ruta absoluta
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: 'file:/home/liinguinii20/stop-time-final/prisma/dev.db'
+    }
+  }
+});
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -108,6 +115,25 @@ app.put('/api/usuarios', async (req, res) => {
     res.json({ id: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol });
   } catch (e) {
     console.error('Update user error', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Reset password - for debugging/testing
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email y nueva contraseña son requeridos' });
+    }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const usuario = await prisma.usuario.update({
+      where: { email: email.toLowerCase() },
+      data: { password: hashedPassword },
+    });
+    res.json({ ok: true, email: usuario.email });
+  } catch (e) {
+    console.error('Reset password error', e);
     res.status(500).json({ error: e.message });
   }
 });

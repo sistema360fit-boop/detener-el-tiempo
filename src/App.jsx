@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Toaster } from "sonner";
+import RoleProtectedRoute from "@/components/RoleProtectedRoute";
 
 // --- ERROR BOUNDARY GLOBAL PARA EVITAR PANTALLA EN BLANCO ---
 class ErrorBoundary extends React.Component {
@@ -135,43 +136,43 @@ function App() {
         {/* Ruta Pública */}
         <Route path="/" element={<Acceso />} />
 
-        {/* Rutas Privadas (Protegidas) */}
-        <Route path="/dashboard" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
-        <Route path="/ventas" element={<ProtectedLayout><Ventas /></ProtectedLayout>} />
-        <Route path="/comandas" element={<ProtectedLayout><Comandas /></ProtectedLayout>} />
-        <Route path="/procesarventa" element={<ProtectedLayout><ProcesarVenta /></ProtectedLayout>} />
-        <Route path="/platos" element={<ProtectedLayout><Platos /></ProtectedLayout>} />
-        <Route path="/ingredientes" element={<ProtectedLayout><Ingredientes /></ProtectedLayout>} />
-        <Route path="/gastos" element={<ProtectedLayout><Gastos /></ProtectedLayout>} />
-        <Route path="/empleados" element={<ProtectedLayout><Empleados /></ProtectedLayout>} />
-        <Route path="/adelantos" element={<ProtectedLayout><Adelantos /></ProtectedLayout>} />
-        <Route path="/recetas-primarias" element={<ProtectedLayout><RecetasPrimarias /></ProtectedLayout>} />
-        <Route path="/recetas-secundarias" element={<ProtectedLayout><RecetasSecundarias /></ProtectedLayout>} />
-        <Route path="/reportes" element={<ProtectedLayout><Reportes /></ProtectedLayout>} />
-        <Route path="/reportes-diarios" element={<ProtectedLayout><ReportesDiarios /></ProtectedLayout>} />
-        <Route path="/reportes-mensuales" element={<ProtectedLayout><ReporteMensual /></ProtectedLayout>} />
-        <Route path="/reportes-entrada-salida" element={<ProtectedLayout><ReportesEntradaSalida /></ProtectedLayout>} />
-        <Route path="/reportes-metodos-pago" element={<ProtectedLayout><ReportesMetodosPago /></ProtectedLayout>} />
-        <Route path="/cuentas-por-cobrar" element={<ProtectedLayout><CuentasPorCobrar /></ProtectedLayout>} />
-        <Route path="/categorias-gastos" element={<ProtectedLayout><CategoriasGastos /></ProtectedLayout>} />
-        <Route path="/compras-ingredientes" element={<ProtectedLayout><ComprasIngredientes /></ProtectedLayout>} />
-        <Route path="/cocina" element={<ProtectedLayout><Cocina /></ProtectedLayout>} />
-        <Route path="/alertas" element={<ProtectedLayout><Alertas /></ProtectedLayout>} />
-        <Route path="/gestion-tasas" element={<ProtectedLayout><GestionTasas /></ProtectedLayout>} />
-        <Route path="/configuracion-retencion" element={<ProtectedLayout><ConfiguracionRetencion /></ProtectedLayout>} />
+        {/* Rutas Privadas (Protegidas por rol) */}
+        <Route path="/dashboard" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><Dashboard /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/ventas" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><Ventas /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/comandas" element={<RoleProtectedRoute pageName="Comandas"><ProtectedLayout><Comandas /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/procesarventa" element={<RoleProtectedRoute pageName="ProcesarVenta"><ProtectedLayout><ProcesarVenta /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/platos" element={<RoleProtectedRoute pageName="Platos"><ProtectedLayout><Platos /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/ingredientes" element={<RoleProtectedRoute pageName="Ingredientes"><ProtectedLayout><Ingredientes /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/gastos" element={<RoleProtectedRoute pageName="Gastos"><ProtectedLayout><Gastos /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/empleados" element={<RoleProtectedRoute pageName="Empleados"><ProtectedLayout><Empleados /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/adelantos" element={<RoleProtectedRoute pageName="Adelantos"><ProtectedLayout><Adelantos /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/recetas-primarias" element={<RoleProtectedRoute pageName="RecetasPrimarias"><ProtectedLayout><RecetasPrimarias /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/recetas-secundarias" element={<RoleProtectedRoute pageName="RecetasSecundarias"><ProtectedLayout><RecetasSecundarias /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/reportes" element={<RoleProtectedRoute pageName="Reportes"><ProtectedLayout><Reportes /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/reportes-diarios" element={<RoleProtectedRoute pageName="ReportesDiarios"><ProtectedLayout><ReportesDiarios /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/reportes-mensuales" element={<RoleProtectedRoute pageName="ReporteMensual"><ProtectedLayout><ReporteMensual /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/reportes-entrada-salida" element={<RoleProtectedRoute pageName="Reportes"><ProtectedLayout><ReportesEntradaSalida /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/reportes-metodos-pago" element={<RoleProtectedRoute pageName="Reportes"><ProtectedLayout><ReportesMetodosPago /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/cuentas-por-cobrar" element={<RoleProtectedRoute pageName="CuentasPorCobrar"><ProtectedLayout><CuentasPorCobrar /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/categorias-gastos" element={<RoleProtectedRoute pageName="CategoriasGastos"><ProtectedLayout><CategoriasGastos /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/compras-ingredientes" element={<RoleProtectedRoute pageName="ComprasIngredientes"><ProtectedLayout><ComprasIngredientes /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/cocina" element={<RoleProtectedRoute pageName="Cocina"><ProtectedLayout><Cocina /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/alertas" element={<RoleProtectedRoute pageName="Alertas"><ProtectedLayout><Alertas /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/gestion-tasas" element={<RoleProtectedRoute pageName="GestionTasas"><ProtectedLayout><GestionTasas /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/configuracion-retencion" element={<RoleProtectedRoute pageName="ConfiguracionRetencion"><ProtectedLayout><ConfiguracionRetencion /></ProtectedLayout></RoleProtectedRoute>} />
         {/* Rutas sin sidebar */}
-        <Route path="/admin-reset" element={<ProtectedLayout><AdminReset /></ProtectedLayout>} />
-        <Route path="/diagnostico-completo" element={<ProtectedLayout><DiagnosticoCompleto /></ProtectedLayout>} />
-        <Route path="/estado-cuenta-detalle" element={<ProtectedLayout><EstadoCuentaDetalle /></ProtectedLayout>} />
-        <Route path="/estados-cuenta" element={<ProtectedLayout><EstadosCuenta /></ProtectedLayout>} />
-        <Route path="/herramienta-manual" element={<ProtectedLayout><HerramientaManual /></ProtectedLayout>} />
-        <Route path="/home" element={<ProtectedLayout><Home /></ProtectedLayout>} />
-        <Route path="/imprimir-comanda" element={<ProtectedLayout><ImprimirComanda /></ProtectedLayout>} />
-        <Route path="/invitar-nestor" element={<ProtectedLayout><InvitarNestor /></ProtectedLayout>} />
-        <Route path="/reparador-cop" element={<ProtectedLayout><ReparadorCOP /></ProtectedLayout>} />
-        <Route path="/reporte-detalle" element={<ProtectedLayout><ReporteDetalle /></ProtectedLayout>} />
-        <Route path="/reporte-entrada-salida-detalle" element={<ProtectedLayout><ReporteEntradaSalidaDetalle /></ProtectedLayout>} />
-        <Route path="/solucion-manual" element={<ProtectedLayout><SolucionManual /></ProtectedLayout>} />
+        <Route path="/admin-reset" element={<RoleProtectedRoute pageName="AdminReset"><ProtectedLayout><AdminReset /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/diagnostico-completo" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><DiagnosticoCompleto /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/estado-cuenta-detalle" element={<RoleProtectedRoute pageName="EstadoCuentaDetalle"><ProtectedLayout><EstadoCuentaDetalle /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/estados-cuenta" element={<RoleProtectedRoute pageName="EstadosCuenta"><ProtectedLayout><EstadosCuenta /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/herramienta-manual" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><HerramientaManual /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/home" element={<RoleProtectedRoute pageName="Home"><ProtectedLayout><Home /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/imprimir-comanda" element={<RoleProtectedRoute pageName="Comandas"><ProtectedLayout><ImprimirComanda /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/invitar-nestor" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><InvitarNestor /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/reparador-cop" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><ReparadorCOP /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/reporte-detalle" element={<RoleProtectedRoute pageName="Reportes"><ProtectedLayout><ReporteDetalle /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/reporte-entrada-salida-detalle" element={<RoleProtectedRoute pageName="Reportes"><ProtectedLayout><ReporteEntradaSalidaDetalle /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/solucion-manual" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><SolucionManual /></ProtectedLayout></RoleProtectedRoute>} />
 
         {/* Si no encuentra la ruta, vuelve al acceso */}
         <Route path="*" element={<Navigate to="/" replace />} />
