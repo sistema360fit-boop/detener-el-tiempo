@@ -7,14 +7,8 @@ import bcrypt from 'bcryptjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Usar SQLite local con ruta absoluta
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: 'file:/home/liinguinii20/stop-time-final/prisma/dev.db'
-    }
-  }
-});
+// Usar PostgreSQL en producción ( Railway ) o SQLite local
+const prisma = new PrismaClient();
 const app = express();
 app.use(cors());
 app.use(express.json());
