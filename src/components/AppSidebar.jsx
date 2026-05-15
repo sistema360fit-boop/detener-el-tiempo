@@ -14,7 +14,9 @@ import {
   Truck,
   CookingPot,
   AlertTriangle,
-  Landmark
+  Landmark,
+  Shield,
+  RefreshCw
 } from "lucide-react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 
@@ -32,49 +34,64 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar"
 
-// Configuración de los links del menú
-const adminItems = [
-  { title: "Inicio", url: "/dashboard", icon: Home },
-  { title: "Ventas", url: "/ventas", icon: ShoppingCart },
-  { title: "Comandas", url: "/comandas", icon: Utensils },
-  { title: "Platos & Sushi", url: "/platos", icon: ChefHat },
-  { title: "Inventario", url: "/ingredientes", icon: Package },
-  { title: "Gastos", url: "/gastos", icon: DollarSign },
-  { title: "Personal", url: "/empleados", icon: Users },
-  { title: "Adelantos", url: "/adelantos", icon: DollarSign },
-];
+// Importar funciones de control de acceso
+import { getCurrentUser, canAccessPage } from "@/lib/roles"
 
-const recetasItems = [
-    { title: "Recetas Primarias", url: "/recetas-primarias", icon: ClipboardList },
-    { title: "Recetas Secundarias", url: "/recetas-secundarias", icon: ClipboardList },
-];
-
-const reportesItems = [
-    { title: "General", url: "/reportes", icon: FileText },
-    { title: "Diarios", url: "/reportes-diarios", icon: FileText },
-    { title: "Mensuales", url: "/reportes-mensuales", icon: FileText },
-];
-
-const contabilidadItems = [
-    { title: "Cuentas por Cobrar", url: "/cuentas-por-cobrar", icon: CreditCard },
-    { title: "Categorías de Gastos", url: "/categorias-gastos", icon: Tags },
-    { title: "Compras", url: "/compras-ingredientes", icon: Truck },
-];
-
-const cocinaItems = [
-    { title: "Vista de Cocina", url: "/cocina", icon: CookingPot },
-    { title: "Alertas de Stock", url: "/alertas", icon: AlertTriangle },
-];
-
-const configItems = [
-    { title: "Tasas de Cambio", url: "/gestion-tasas", icon: Landmark },
-];
+// Configuración de los links del menú - cada item indica qué roles pueden verlo
+const menuItems = {
+  administracion: [
+    { title: "Inicio", url: "/dashboard", icon: Home, permission: 'Dashboard' },
+    { title: "Ventas", url: "/ventas", icon: ShoppingCart, permission: 'ProcesarVenta' },
+    { title: "Comandas", url: "/comandas", icon: Utensils, permission: 'Comandas' },
+    { title: "Platos & Sushi", url: "/platos", icon: ChefHat, permission: 'Platos' },
+    { title: "Inventario", url: "/ingredientes", icon: Package, permission: 'Ingredientes' },
+    { title: "Gastos", url: "/gastos", icon: DollarSign, permission: 'Gastos' },
+    { title: "Personal", url: "/personal", icon: Users, permission: 'Personal' },
+    { title: "Adelantos", url: "/adelantos", icon: DollarSign, permission: 'Adelantos' },
+  ],
+  recetas: [
+    { title: "Recetas Primarias", url: "/recetas-primarias", icon: ClipboardList, permission: 'RecetasPrimarias' },
+    { title: "Recetas Secundarias", url: "/recetas-secundarias", icon: ClipboardList, permission: 'RecetasSecundarias' },
+  ],
+  reportes: [
+    { title: "General", url: "/reportes", icon: FileText, permission: 'Reportes' },
+    { title: "Diarios", url: "/reportes-diarios", icon: FileText, permission: 'ReportesDiarios' },
+    { title: "Mensuales", url: "/reportes-mensuales", icon: FileText, permission: 'ReporteMensual' },
+  ],
+  contabilidad: [
+    { title: "Cuentas por Cobrar", url: "/cuentas-por-cobrar", icon: CreditCard, permission: 'CuentasPorCobrar' },
+    { title: "Categorías de Gastos", url: "/categorias-gastos", icon: Tags, permission: 'CategoriasGastos' },
+    { title: "Compras", url: "/compras-ingredientes", icon: Truck, permission: 'ComprasIngredientes' },
+  ],
+  cocina: [
+    { title: "Vista de Cocina", url: "/cocina", icon: CookingPot, permission: 'Cocina' },
+    { title: "Alertas de Stock", url: "/alertas", icon: AlertTriangle, permission: 'Alertas' },
+  ],
+  config: [
+    { title: "Tasas de Cambio", url: "/gestion-tasas", icon: Landmark, permission: 'GestionTasas' },
+    { title: "Depuración y Cierre", url: "/configuracion-retencion", icon: RefreshCw, permission: 'ConfiguracionRetencion' },
+    { title: "Admin Reset", url: "/admin-reset", icon: Shield, permission: 'AdminReset' },
+  ],
+};
 
 const SidebarItems = ({ items }) => {
   const location = useLocation();
+  // Filtrar items según permisos del usuario
+  const user = getCurrentUser();
+  const userRole = user?.rol?.toLowerCase();
+  
+  const visibleItems = items.filter(item => {
+    // Si el usuario es admin, puede ver todo
+    if (userRole === 'administrador') return true;
+    // Verificar permiso específico para el item
+    return item.permission && canAccessPage(item.permission, userRole);
+  });
+  
+  if (visibleItems.length === 0) return null;
+  
   return (
     <SidebarMenu>
-      {items.map((item) => (
+      {visibleItems.map((item) => (
         <SidebarMenuItem key={item.title}>
           <SidebarMenuButton 
             asChild 
@@ -95,6 +112,14 @@ const SidebarItems = ({ items }) => {
 
 export function AppSidebar() {
   const navigate = useNavigate()
+  const user = getCurrentUser();
+  const userRole = user?.rol?.toLowerCase();
+
+  // Función para verificar si debe mostrar un grupo
+  const shouldShowGroup = (items) => {
+    if (userRole === 'administrador') return true;
+    return items.some(item => !item.permission || canAccessPage(item.permission, userRole));
+  };
 
   const handleLogout = () => {
     // Limpiamos la sesión (opcional) y volvemos al acceso
@@ -121,42 +146,54 @@ export function AppSidebar() {
 
       {/* Contenido principal del menú */}
       <SidebarContent>
+        {shouldShowGroup(menuItems.administracion) && (
         <SidebarGroup>
           <SidebarGroupLabel className="text-slate-400 font-bold px-4 mb-2">Administración</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarItems items={adminItems} />
+            <SidebarItems items={menuItems.administracion} />
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
+        {shouldShowGroup(menuItems.recetas) && (
         <SidebarGroup>
           <SidebarGroupLabel className="text-slate-400 font-bold px-4 mb-2">Recetas</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarItems items={recetasItems} />
+            <SidebarItems items={menuItems.recetas} />
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
+        {shouldShowGroup(menuItems.reportes) && (
         <SidebarGroup>
           <SidebarGroupLabel className="text-slate-400 font-bold px-4 mb-2">Reportes</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarItems items={reportesItems} />
+            <SidebarItems items={menuItems.reportes} />
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
+        {shouldShowGroup(menuItems.contabilidad) && (
         <SidebarGroup>
           <SidebarGroupLabel className="text-slate-400 font-bold px-4 mb-2">Contabilidad</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarItems items={contabilidadItems} />
+            <SidebarItems items={menuItems.contabilidad} />
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
+        {shouldShowGroup(menuItems.cocina) && (
         <SidebarGroup>
           <SidebarGroupLabel className="text-slate-400 font-bold px-4 mb-2">Cocina</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarItems items={cocinaItems} />
+            <SidebarItems items={menuItems.cocina} />
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
+        {shouldShowGroup(menuItems.config) && (
         <SidebarGroup>
           <SidebarGroupLabel className="text-slate-400 font-bold px-4 mb-2">Configuración</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarItems items={configItems} />
+            <SidebarItems items={menuItems.config} />
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
       </SidebarContent>
 
       {/* Pie del Sidebar (Cerrar Sesión / Usuario) */}

@@ -72,7 +72,7 @@ export default function IngredientesList({ ingredientes, onEdit, onNuevoCosto, o
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-gray-500 text-xs">Costo/Unidad</p>
-                  <p className="font-semibold text-gray-900">${ingrediente.costo_por_unidad.toFixed(2)}</p>
+                  <p className="font-semibold text-gray-900">${(ingrediente.costo_por_unidad ?? 0).toFixed(2)}</p>
                 </div>
                 <div>
                   <p className="text-gray-500 text-xs">Stock</p>
@@ -118,7 +118,7 @@ export default function IngredientesList({ ingredientes, onEdit, onNuevoCosto, o
                   <TableCell>
                     <Badge variant="outline">{ingrediente.unidad_medida}</Badge>
                   </TableCell>
-                  <TableCell>${ingrediente.costo_por_unidad.toFixed(2)}</TableCell>
+                  <TableCell>${(ingrediente.costo_por_unidad ?? 0).toFixed(2)}</TableCell>
                   <TableCell className={bajoStock ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
                     {ingrediente.cantidad_disponible} {ingrediente.unidad_medida}
                   </TableCell>

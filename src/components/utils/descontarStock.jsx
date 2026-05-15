@@ -85,7 +85,8 @@ async function explodirPlato(platoId, cantidad, consolidado, nombrePlato = '') {
       const cantidadTotal = receta.cantidad_requerida * cantidad;
       
       // Explotar recursivamente este componente
-      await explodirElemento(receta.ingrediente_id, cantidadTotal, consolidado, '    ', nombrePlato);
+      // Pasamos el 'tipo' para optimizar la búsqueda si existe
+      await explodirElemento(receta.ingrediente_id, cantidadTotal, consolidado, '    ', nombrePlato, receta.tipo);
     }
   } catch (error) {
     if (error.message.includes('No se pudo descontar inventario')) {
@@ -99,7 +100,7 @@ async function explodirPlato(platoId, cantidad, consolidado, nombrePlato = '') {
  * EXPLOSIÓN RECURSIVA: Determina el tipo de elemento y lo desglose o consolida
  * ORDEN DE VERIFICACIÓN CRÍTICO: Recetas compuestas primero, ingredientes simples al final
  */
-async function explodirElemento(elementoId, cantidad, consolidado, indent = '', nombrePlatoOrigen = '') {
+async function explodirElemento(elementoId, cantidad, consolidado, indent = '', nombrePlatoOrigen = '', tipoSugerido = null) {
   try {
     console.log(`${indent}🔍 Explorando elemento ID: ${elementoId} con cantidad: ${cantidad}`);
     
@@ -112,7 +113,11 @@ async function explodirElemento(elementoId, cantidad, consolidado, indent = '', 
     }
   
     // CASO 1: ¿Es una receta primaria? → EXPLOTAR (PRIORIDAD ALTA)
-    const recetasPrimarias = await base44.entities.RecetaPrimaria.filter({ id: elementoId });
+    const esRecetaPrimaria = tipoSugerido === 'receta_primaria';
+    const recetasPrimarias = esRecetaPrimaria 
+      ? await base44.entities.RecetaPrimaria.filter({ id: elementoId })
+      : (tipoSugerido ? [] : await base44.entities.RecetaPrimaria.filter({ id: elementoId }));
+
     if (recetasPrimarias.length > 0) {
       try {
         const receta = recetasPrimarias[0];
@@ -136,9 +141,12 @@ async function explodirElemento(elementoId, cantidad, consolidado, indent = '', 
           }
           
           // Multiplicar: cantidad del padre * cantidad requerida del hijo
-          const cantidadHijo = cantidad * detalle.cantidad_requerida;
-          console.log(`${indent}   ├─ Sub-componente: ${detalle.ingrediente_nombre || 'ID: ' + detalle.ingrediente_id} x ${detalle.cantidad_requerida} → Total: ${cantidadHijo}`);
-          await explodirElemento(detalle.ingrediente_id, cantidadHijo, consolidado, indent + '   │  ', nombrePlatoOrigen);
+          // NOTA: En DetalleRecetaPrimaria el campo es 'cantidad'
+          const cantDetalle = detalle.cantidad || detalle.cantidad_requerida || 0;
+          const cantidadHijo = cantidad * cantDetalle;
+          
+          console.log(`${indent}   ├─ Sub-componente: ${detalle.ingrediente_nombre || 'ID: ' + detalle.ingrediente_id} x ${cantDetalle} → Total: ${cantidadHijo}`);
+          await explodirElemento(detalle.ingrediente_id, cantidadHijo, consolidado, indent + '   │  ', nombrePlatoOrigen, detalle.tipo_elemento);
         }
         console.log(`${indent}   └─ ✅ Receta "${receta.nombre}" completamente desglosada`);
         return;
@@ -151,7 +159,11 @@ async function explodirElemento(elementoId, cantidad, consolidado, indent = '', 
     }
     
     // CASO 2: ¿Es una receta secundaria? → EXPLOTAR (PRIORIDAD ALTA)
-    const recetasSecundarias = await base44.entities.RecetaSecundaria.filter({ id: elementoId });
+    const esRecetaSecundaria = tipoSugerido === 'receta_secundaria';
+    const recetasSecundarias = esRecetaSecundaria
+      ? await base44.entities.RecetaSecundaria.filter({ id: elementoId })
+      : (tipoSugerido ? [] : await base44.entities.RecetaSecundaria.filter({ id: elementoId }));
+
     if (recetasSecundarias.length > 0) {
       try {
         const receta = recetasSecundarias[0];
@@ -175,9 +187,12 @@ async function explodirElemento(elementoId, cantidad, consolidado, indent = '', 
           }
           
           // Multiplicar: cantidad del padre * cantidad requerida del hijo
-          const cantidadHijo = cantidad * detalle.cantidad_requerida;
-          console.log(`${indent}   ├─ Sub-componente tipo [${detalle.tipo_elemento}]: ${detalle.elemento_nombre || 'ID: ' + detalle.elemento_id} x ${detalle.cantidad_requerida} → Total: ${cantidadHijo}`);
-          await explodirElemento(detalle.elemento_id, cantidadHijo, consolidado, indent + '   │  ', nombrePlatoOrigen);
+          // NOTA: En DetalleRecetaSecundaria el campo es 'cantidad'
+          const cantDetalle = detalle.cantidad || detalle.cantidad_requerida || 0;
+          const cantidadHijo = cantidad * cantDetalle;
+          
+          console.log(`${indent}   ├─ Sub-componente tipo [${detalle.tipo_elemento}]: ${detalle.elemento_nombre || 'ID: ' + detalle.elemento_id} x ${cantDetalle} → Total: ${cantidadHijo}`);
+          await explodirElemento(detalle.elemento_id, cantidadHijo, consolidado, indent + '   │  ', nombrePlatoOrigen, detalle.tipo_elemento);
         }
         console.log(`${indent}   └─ ✅ Receta "${receta.nombre}" completamente desglosada`);
         return;
@@ -190,7 +205,11 @@ async function explodirElemento(elementoId, cantidad, consolidado, indent = '', 
     }
     
     // CASO 3: ¿Es otro plato? → EXPLOTAR como plato (SUB-PLATOS)
-    const platos = await base44.entities.Plato.filter({ id: elementoId });
+    const esPlato = tipoSugerido === 'plato';
+    const platos = esPlato
+      ? await base44.entities.Plato.filter({ id: elementoId })
+      : (tipoSugerido ? [] : await base44.entities.Plato.filter({ id: elementoId }));
+
     if (platos.length > 0) {
       console.log(`${indent}🟡 SUB-PLATO DETECTADO: "${platos[0].nombre}" → DESGLOSANDO...`);
       await explodirPlato(elementoId, cantidad, consolidado, platos[0].nombre);
@@ -198,7 +217,11 @@ async function explodirElemento(elementoId, cantidad, consolidado, indent = '', 
     }
     
     // CASO 4: ¿Es un ingrediente base? → CONSOLIDAR (PRIORIDAD BAJA - hoja del árbol)
-    const ingredientes = await base44.entities.Ingrediente.filter({ id: elementoId });
+    const esIngrediente = tipoSugerido === 'ingrediente';
+    const ingredientes = esIngrediente
+      ? await base44.entities.Ingrediente.filter({ id: elementoId })
+      : (tipoSugerido ? [] : await base44.entities.Ingrediente.filter({ id: elementoId }));
+
     if (ingredientes.length > 0) {
       const ing = ingredientes[0];
       console.log(`${indent}🟢 INGREDIENTE BASE ENCONTRADO: "${ing.nombre}" x ${cantidad} ${ing.unidad_receta || 'unidades'}`);

@@ -61,10 +61,10 @@ export default function ReporteEntradaSalidaDetalle() {
 
   if (!metodo || !metodosConfig[metodo]) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-red-600">Método de pago no válido</p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+        <p className="text-red-400 text-lg mb-4">Método de pago no válido</p>
         <Link to={createPageUrl("ReportesEntradaSalida")}>
-          <Button className="mt-4">Volver a Reportes</Button>
+          <Button className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700">Volver a Reportes</Button>
         </Link>
       </div>
     );
@@ -100,13 +100,15 @@ export default function ReporteEntradaSalidaDetalle() {
   // ENTRADAS: Ventas simples
   ventasFiltradas.forEach(venta => {
     if (venta.metodo_pago === metodo) {
+      const esBs = metodo.endsWith('_bs');
+      const monto = esBs ? (venta.total_ves || 0) : venta.total_venta;
       movimientos.push({
         id: venta.id,
         fecha: venta.fecha_hora,
         tipo: 'entrada',
         subtipo: 'venta_simple',
         concepto: 'Venta completa',
-        monto_usd: venta.total_venta,
+        monto: monto,
         referencia: venta.id.substring(0, 8)
       });
     }
@@ -116,13 +118,15 @@ export default function ReporteEntradaSalidaDetalle() {
   const ventasIds = ventasFiltradas.map(v => v.id);
   pagosMixtos.forEach(pago => {
     if (ventasIds.includes(pago.venta_id) && pago.metodo_pago === metodo) {
+      const esBs = metodo.endsWith('_bs');
+      const monto = esBs ? (pago.monto_original || 0) : (pago.monto_usd || 0);
       movimientos.push({
         id: pago.id,
         fecha: ventasFiltradas.find(v => v.id === pago.venta_id)?.fecha_hora,
         tipo: 'entrada',
         subtipo: 'pago_mixto',
         concepto: 'Pago mixto (parte de venta)',
-        monto_usd: pago.monto_usd,
+        monto: monto,
         referencia: pago.venta_id.substring(0, 8)
       });
     }
@@ -131,13 +135,15 @@ export default function ReporteEntradaSalidaDetalle() {
   // SALIDAS: Gastos
   gastosFiltrados.forEach(gasto => {
     if (gasto.metodo_pago === metodo) {
+      const esBs = metodo.endsWith('_bs');
+      const monto = esBs ? (gasto.monto_original || gasto.monto || 0) : (gasto.monto || 0);
       movimientos.push({
         id: gasto.id,
         fecha: gasto.fecha_gasto,
         tipo: 'salida',
         subtipo: 'gasto',
         concepto: gasto.descripcion,
-        monto_usd: gasto.monto,
+        monto: monto,
         referencia: gasto.comprobante || gasto.id.substring(0, 8),
         categoria: gasto.categoria
       });
@@ -147,8 +153,13 @@ export default function ReporteEntradaSalidaDetalle() {
   // Ordenar por fecha descendente
   movimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
-  const totalEntradas = movimientos.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.monto_usd, 0);
-  const totalSalidas = movimientos.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto_usd, 0);
+  const esBs = metodo.endsWith('_bs');
+  const formatMonto = (val) => esBs 
+    ? `Bs ${val.toLocaleString('es-VE', { minimumFractionDigits: 2 })}` 
+    : `$${val.toFixed(2)}`;
+
+  const totalEntradas = movimientos.filter(m => m.tipo === 'entrada').reduce((sum, m) => sum + m.monto, 0);
+  const totalSalidas = movimientos.filter(m => m.tipo === 'salida').reduce((sum, m) => sum + m.monto, 0);
   const saldoFinal = totalEntradas - totalSalidas;
   const cantidadEntradas = movimientos.filter(m => m.tipo === 'entrada').length;
   const cantidadSalidas = movimientos.filter(m => m.tipo === 'salida').length;
@@ -193,123 +204,91 @@ export default function ReporteEntradaSalidaDetalle() {
   const isLoading = loadingVentas || loadingPagos || loadingGastos;
 
   return (
-    <div className="p-4 md:p-8 min-h-screen">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+      <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
+        {/* Header Premium */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-2">
           <div className="flex items-center gap-3">
             <Link to={createPageUrl("ReportesEntradaSalida")}>
-              <Button variant="outline" size="icon">
-                <ArrowLeft className="w-4 h-4" />
+              <Button variant="outline" size="icon" className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white rounded-xl">
+                <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">
                 {metodoDef.label}
               </h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-slate-400 mt-1">
                 {format(new Date(fechaInicio), "dd MMM yyyy", { locale: es })} - {format(new Date(fechaFin), "dd MMM yyyy", { locale: es })}
               </p>
             </div>
           </div>
-          <Button onClick={exportarExcel} className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto">
+          <Button onClick={exportarExcel} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 w-full sm:w-auto">
             <FileSpreadsheet className="w-4 h-4 mr-2" />
-            Exportar Excel
+            Exportar CSV
           </Button>
         </div>
 
         {/* Resumen */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Card className="shadow-lg border-none bg-gradient-to-br from-green-50 to-emerald-50">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">💰 Entradas</p>
-                  <h3 className="text-2xl font-bold text-green-600">
-                    ${totalEntradas.toFixed(2)}
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-1">{cantidadEntradas} transacciones</p>
-                </div>
-                <ArrowUpCircle className="w-8 h-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.05))', border: '1px solid rgba(16,185,129,0.2)' }}>
+            <p className="text-emerald-400/70 text-xs font-bold uppercase tracking-wider">💰 Entradas</p>
+            <p className="text-3xl font-black mt-1 text-emerald-400">{formatMonto(totalEntradas)}</p>
+            <p className="text-xs text-slate-400 mt-1">{cantidadEntradas} transacciones</p>
+            <ArrowUpCircle className="absolute top-4 right-4 w-12 h-12 text-emerald-500/20" />
+          </div>
 
-          <Card className="shadow-lg border-none bg-gradient-to-br from-red-50 to-rose-50">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">💸 Salidas</p>
-                  <h3 className="text-2xl font-bold text-red-600">
-                    ${totalSalidas.toFixed(2)}
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-1">{cantidadSalidas} transacciones</p>
-                </div>
-                <ArrowDownCircle className="w-8 h-8 text-red-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.05))', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <p className="text-red-400/70 text-xs font-bold uppercase tracking-wider">💸 Salidas</p>
+            <p className="text-3xl font-black mt-1 text-red-400">{formatMonto(totalSalidas)}</p>
+            <p className="text-xs text-slate-400 mt-1">{cantidadSalidas} transacciones</p>
+            <ArrowDownCircle className="absolute top-4 right-4 w-12 h-12 text-red-500/20" />
+          </div>
 
-          <Card className={`shadow-lg border-none bg-gradient-to-br ${saldoFinal >= 0 ? 'from-purple-50 to-indigo-50' : 'from-red-50 to-rose-50'}`}>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">✅ Saldo Final</p>
-                  <h3 className={`text-2xl font-bold ${saldoFinal >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
-                    ${saldoFinal.toFixed(2)}
-                  </h3>
-                </div>
-                {saldoFinal >= 0 ? (
-                  <TrendingUp className="w-8 h-8 text-purple-600" />
-                ) : (
-                  <TrendingDown className="w-8 h-8 text-red-600" />
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: saldoFinal >= 0 ? 'linear-gradient(135deg, rgba(168,85,247,0.15), rgba(147,51,234,0.05))' : 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.05))', border: `1px solid ${saldoFinal >= 0 ? 'rgba(168,85,247,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
+            <p className={`${saldoFinal >= 0 ? 'text-purple-400/70' : 'text-red-400/70'} text-xs font-bold uppercase tracking-wider`}>✅ Saldo Final</p>
+            <p className={`text-3xl font-black mt-1 ${saldoFinal >= 0 ? 'text-purple-400' : 'text-red-400'}`}>{formatMonto(saldoFinal)}</p>
+            {saldoFinal >= 0 ? (
+              <TrendingUp className="absolute top-4 right-4 w-12 h-12 text-purple-500/20" />
+            ) : (
+              <TrendingDown className="absolute top-4 right-4 w-12 h-12 text-red-500/20" />
+            )}
+          </div>
 
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">📊 Movimientos</p>
-                  <h3 className="text-2xl font-bold text-gray-900">
-                    {movimientos.length}
-                  </h3>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <p className="text-slate-400/70 text-xs font-bold uppercase tracking-wider">📊 Movimientos</p>
+            <p className="text-3xl font-black mt-1 text-white">{movimientos.length}</p>
+          </div>
         </div>
 
         {/* Tabla de Movimientos */}
-        <Card className="shadow-lg border-none">
-          <CardHeader>
-            <CardTitle className="text-lg">📋 Detalle de Movimientos</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="p-4 sm:p-6 border-b border-white/5">
+            <h3 className="text-lg font-bold text-white">📋 Detalle de Movimientos</h3>
+          </div>
+          <div className="p-0">
             {isLoading ? (
-              <Skeleton className="h-64 w-full" />
+              <div className="p-6"><Skeleton className="h-64 w-full bg-white/5" /></div>
             ) : movimientos.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead>Fecha y Hora</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Concepto</TableHead>
-                      <TableHead className="text-right">Monto</TableHead>
-                      <TableHead>Referencia</TableHead>
+                    <TableRow className="border-white/10 hover:bg-transparent">
+                      <TableHead className="text-slate-400">Fecha y Hora</TableHead>
+                      <TableHead className="text-slate-400">Tipo</TableHead>
+                      <TableHead className="text-slate-400">Concepto</TableHead>
+                      <TableHead className="text-right text-slate-400">Monto</TableHead>
+                      <TableHead className="text-slate-400">Referencia</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {movimientos.map((m, index) => (
-                      <TableRow key={`${m.id}-${index}`} className="hover:bg-gray-50">
-                        <TableCell className="text-sm">
+                      <TableRow key={`${m.id}-${index}`} className="border-white/5 hover:bg-white/5 transition-colors">
+                        <TableCell className="text-sm text-slate-300">
                           {format(parseISO(m.fecha), "dd/MM/yyyy HH:mm", { locale: es })}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={m.tipo === 'entrada' ? 'default' : 'destructive'} className="flex items-center gap-1 w-fit">
+                          <Badge className={m.tipo === 'entrada' ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border-0 flex items-center gap-1 w-fit' : 'bg-red-500/20 text-red-300 hover:bg-red-500/30 border-0 flex items-center gap-1 w-fit'}>
                             {m.tipo === 'entrada' ? (
                               <>
                                 <ArrowUpCircle className="w-3 h-3" />
@@ -323,24 +302,24 @@ export default function ReporteEntradaSalidaDetalle() {
                             )}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium text-white">
                           {m.concepto}
                           {m.categoria && (
-                            <Badge variant="outline" className="ml-2 text-xs">{m.categoria}</Badge>
+                            <Badge className="ml-2 text-xs bg-white/10 text-slate-300 hover:bg-white/20 border-0">{m.categoria}</Badge>
                           )}
                         </TableCell>
-                        <TableCell className={`text-right font-bold ${m.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
-                          {m.tipo === 'entrada' ? '+' : '-'}${m.monto_usd.toFixed(2)}
+                        <TableCell className={`text-right font-bold ${m.tipo === 'entrada' ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {m.tipo === 'entrada' ? '+' : '-'}{formatMonto(m.monto)}
                         </TableCell>
-                        <TableCell className="text-sm text-gray-500">
+                        <TableCell className="text-sm text-slate-500">
                           {m.referencia}
                         </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="bg-purple-50 font-bold border-t-2">
-                      <TableCell colSpan={3}>SALDO FINAL</TableCell>
-                      <TableCell className={`text-right text-lg ${saldoFinal >= 0 ? 'text-purple-700' : 'text-red-700'}`}>
-                        ${saldoFinal.toFixed(2)}
+                    <TableRow className="border-t-2 border-white/10 bg-white/5 font-bold hover:bg-white/5">
+                      <TableCell colSpan={3} className="text-white">SALDO FINAL</TableCell>
+                      <TableCell className={`text-right text-lg ${saldoFinal >= 0 ? 'text-purple-400' : 'text-red-400'}`}>
+                        {formatMonto(saldoFinal)}
                       </TableCell>
                       <TableCell></TableCell>
                     </TableRow>
@@ -349,12 +328,12 @@ export default function ReporteEntradaSalidaDetalle() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <TrendingDown className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No hay movimientos en este período para {metodoDef.label}</p>
+                <TrendingDown className="w-16 h-16 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-400">No hay movimientos en este período para {metodoDef.label}</p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

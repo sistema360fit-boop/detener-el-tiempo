@@ -374,7 +374,7 @@ export default function ComandaDetalle({
                                     {plato.tiene_piezas ? (
                                       <span className="ml-2 text-xs text-blue-600">(Piezas)</span>
                                     ) : (
-                                      ` - $${plato.precio?.toFixed(2)}`
+                                      ` - ${(plato.precio ?? 0).toFixed(2)}`
                                     )}
                                   </CommandItem>
                                 ))}
@@ -393,7 +393,7 @@ export default function ComandaDetalle({
                             onClick={() => setVarianteSeleccionada("6")}
                             className={`flex-1 ${varianteSeleccionada === "6" ? "bg-blue-600" : ""}`}
                           >
-                            6 Piezas (${platos.find(p => p.id === platoSeleccionado)?.precio_6?.toFixed(2)})
+                            6 Piezas (${(platos.find(p => p.id === platoSeleccionado)?.precio_6 ?? 0).toFixed(2)})
                           </Button>
                           <Button
                             type="button"
@@ -402,7 +402,7 @@ export default function ComandaDetalle({
                             onClick={() => setVarianteSeleccionada("12")}
                             className={`flex-1 ${varianteSeleccionada === "12" ? "bg-blue-600" : ""}`}
                           >
-                            12 Piezas (${platos.find(p => p.id === platoSeleccionado)?.precio_12?.toFixed(2)})
+                            12 Piezas (${(platos.find(p => p.id === platoSeleccionado)?.precio_12 ?? 0).toFixed(2)})
                           </Button>
                         </div>
                       )}
@@ -457,7 +457,8 @@ export default function ComandaDetalle({
           </h3>
           <div className="space-y-3">
             {detalles.map((detalle) => {
-              const config = estadoPlatoConfig[detalle.estado_plato];
+              const estado = detalle.estado_plato || 'pendiente';
+              const config = estadoPlatoConfig[estado] || estadoPlatoConfig['pendiente'];
               const Icon = config.icon;
 
               return (
@@ -472,7 +473,7 @@ export default function ComandaDetalle({
                       )}
                     </div>
                     <span className="font-bold text-amber-600 text-sm sm:text-base flex-shrink-0">
-                      ${detalle.subtotal.toFixed(2)}
+                      ${(detalle.subtotal ?? 0).toFixed(2)}
                     </span>
                   </div>
 
@@ -505,7 +506,7 @@ export default function ComandaDetalle({
             <div className="flex justify-between items-center">
               <span className="text-base sm:text-lg font-bold text-gray-900">TOTAL:</span>
               <span className="text-xl sm:text-2xl font-bold text-amber-600">
-                ${subtotalUSD.toFixed(2)}
+                ${(subtotalUSD ?? 0).toFixed(2)}
               </span>
             </div>
           </div>
@@ -610,7 +611,7 @@ export default function ComandaDetalle({
             <div className="space-y-4">
               <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
                 <p className="text-sm text-gray-600">Monto de la Comanda</p>
-                <p className="text-2xl font-bold text-amber-600">${comanda.total_comanda.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-amber-600">${(comanda.total_comanda ?? 0).toFixed(2)}</p>
               </div>
 
               <div className="space-y-2">
@@ -736,7 +737,7 @@ export default function ComandaDetalle({
                     <div className="bg-white rounded-lg p-3 border border-blue-200">
                       <p className="text-xs text-gray-600 mb-1">DÓLARES (USD)</p>
                       <p className="text-2xl font-bold text-blue-600">
-                        ${totalUSD.toFixed(2)}
+                        ${(totalUSD ?? 0).toFixed(2)}
                       </p>
                     </div>
 
@@ -759,7 +760,7 @@ export default function ComandaDetalle({
                           Bs {totalVES.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          (Calculado: ${totalUSD.toFixed(2)} × {(tasaUSDLocal || tasaActual.tasa_bs_usd).toLocaleString('es-ES', { minimumFractionDigits: 2 })})
+                          (Calculado: ${(totalUSD ?? 0).toFixed(2)} × {(tasaUSDLocal || tasaActual.tasa_bs_usd).toLocaleString('es-ES', { minimumFractionDigits: 2 })})
                         </p>
                       </div>
                     ) : (
@@ -783,8 +784,9 @@ export default function ComandaDetalle({
                       <SelectItem value="zinli_usd">?? Zinli</SelectItem>
                       <SelectItem value="paypal_usd">?? PayPal</SelectItem>
                       <SelectItem value="zelle_usd">?? Zelle</SelectItem>
-                      <SelectItem value="nequi_cop">?? Nequi</SelectItem>
-                      <SelectItem value="tarjeta_bs">?? Tarjeta Bs</SelectItem>
+                      <SelectItem value="nequi_cop">📱 Nequi</SelectItem>
+                      <SelectItem value="efectivo_cop">💵 Efectivo COP</SelectItem>
+                      <SelectItem value="tarjeta_bs">💳 Tarjeta Bs</SelectItem>
                       <SelectItem value="pago_movil_bs">?? Pago Móvil</SelectItem>
                       <SelectItem value="mixto">?? Pago Mixto</SelectItem>
                       <SelectItem value="cuentas_por_cobrar">?? Cuenta por Cobrar</SelectItem>

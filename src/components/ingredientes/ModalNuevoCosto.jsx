@@ -61,7 +61,7 @@ export default function ModalNuevoCosto({ ingrediente, onConfirm, onCancel, isLo
           <div className="bg-gray-50 rounded-lg p-4">
             <p className="text-sm text-gray-600 mb-1">Costo Actual</p>
             <p className="text-2xl font-bold text-gray-900">
-              ${ingrediente.costo_por_unidad.toFixed(2)}
+              ${(ingrediente.costo_por_unidad ?? 0).toFixed(2)}
               <span className="text-sm font-normal text-gray-500 ml-2">/ {ingrediente.unidad_medida}</span>
             </p>
           </div>

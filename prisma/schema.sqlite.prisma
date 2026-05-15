@@ -44,12 +44,19 @@ model Ingrediente {
 }
 
 model Plato {
-  id        String  @id @default(uuid())
-  nombre    String
-  precio    Float
-  activo    Boolean @default(true)
-  recetas   Receta[]
-  createdAt DateTime @default(now())
+  id            String   @id @default(uuid())
+  nombre        String
+  descripcion   String?
+  precio        Float    @default(0)
+  categoria     String?
+  activo        Boolean  @default(true)
+  tiene_piezas  Boolean  @default(false)
+  precio_6      Float    @default(0)
+  precio_12     Float    @default(0)
+  costo_total   Float    @default(0)
+  precio_sugerido Float  @default(0)
+  recetas       Receta[]
+  createdAt     DateTime @default(now())
 }
 
 model Receta {
@@ -59,6 +66,7 @@ model Receta {
   ingredienteId     String
   ingredienteNombre String?
   cantidad_requerida Float
+  costo_ingrediente Float?   @default(0)
 }
 
 model Comanda {
@@ -110,19 +118,27 @@ model CategoriaGasto {
 }
 
 model DetalleRecetaPrimaria {
-  id                String  @id @default(uuid())
-  recetaPrimariaId  String
-  recetaPrimaria    RecetaPrimaria @relation(fields: [recetaPrimariaId], references: [id])
-  ingredienteId     String?
-  cantidad          Float
+  id                 String  @id @default(uuid())
+  recetaPrimariaId   String
+  recetaPrimaria     RecetaPrimaria @relation(fields: [recetaPrimariaId], references: [id])
+  ingredienteId      String?
+  ingredienteNombre  String?
+  tipoElemento       String?  // ingrediente, receta_primaria
+  cantidad           Float
+  unidadMedida       String?
+  costoIngrediente   Float?   @default(0)
 }
 
 model DetalleRecetaSecundaria {
-  id                    String  @id @default(uuid())
-  recetaSecundariaId    String
-  recetaSecundaria      RecetaSecundaria @relation(fields: [recetaSecundariaId], references: [id])
-  ingredienteId         String?
-  cantidad              Float
+  id                 String  @id @default(uuid())
+  recetaSecundariaId String
+  recetaSecundaria   RecetaSecundaria @relation(fields: [recetaSecundariaId], references: [id])
+  elementoId         String?
+  elementoNombre     String?
+  tipoElemento       String?  // ingrediente, receta_primaria
+  cantidad           Float
+  unidadMedida       String?
+  costoElemento      Float?   @default(0)
 }
 
 model SesionUsuario {
@@ -152,6 +168,8 @@ model CuentaPorCobrar {
 model Empleado {
   id        String   @id @default(uuid())
   nombre    String
+  usuario   String?  // Username para login
+  password  String?  // Password hasheado para autenticación
   rol       String?
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -199,15 +217,31 @@ model PagoMixto {
 }
 
 model RecetaPrimaria {
-  id      String  @id @default(uuid())
-  nombre  String
-  detalles DetalleRecetaPrimaria[]
+  id                  String  @id @default(uuid())
+  nombre              String
+  descripcion         String?
+  unidadMedida        String?  // kg, g, l, ml, unidad, porcion
+  cantidadResultante  Float    @default(1)
+  costoTotal          Float    @default(0)
+  costoPorUnidad      Float    @default(0)
+  tiempoPreparacion   Int?
+  instrucciones       String?
+  activa              Boolean @default(true)
+  detalles            DetalleRecetaPrimaria[]
 }
 
 model RecetaSecundaria {
-  id       String  @id @default(uuid())
-  nombre   String
-  detalles DetalleRecetaSecundaria[]
+  id                  String  @id @default(uuid())
+  nombre              String
+  descripcion         String?
+  unidadMedida        String?  // kg, g, l, ml, unidad, porcion
+  cantidadResultante  Float    @default(1)
+  costoTotal          Float    @default(0)
+  costoPorUnidad      Float    @default(0)
+  tiempoPreparacion   Int?
+  instrucciones       String?
+  activa              Boolean @default(true)
+  detalles            DetalleRecetaSecundaria[]
 }
 
 model TasaCambio {

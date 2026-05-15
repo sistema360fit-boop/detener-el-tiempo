@@ -2,7 +2,7 @@
  * Componente de protección de rutas por rol
  * Envuelve cualquier página y verifica que el usuario tenga permiso para acceder
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { canAccessPage, getDefaultPage, getCurrentUser } from "@/lib/roles";
@@ -11,26 +11,49 @@ import { Button } from "@/components/ui/button";
 
 export default function RoleProtectedRoute({ children, pageName }) {
   const navigate = useNavigate();
-  const user = getCurrentUser();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Si no hay usuario, redirigir a login
-    if (!user) {
-      navigate(createPageUrl("Acceso"));
-      return;
-    }
+    // Obtener usuario del localStorage
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (loading || !user) return;
 
     // Verificar permiso para esta página
-    if (!canAccessPage(pageName, user.rol)) {
-      // Redirigir a la página designada del rol
+    const hasAccess = canAccessPage(pageName, user.rol);
+    
+    if (!hasAccess) {
+      // Intentar con la página por defecto del rol
       const defaultPage = getDefaultPage(user.rol);
-      navigate(createPageUrl(defaultPage));
+      const defaultHasAccess = canAccessPage(defaultPage, user.rol);
+      
+      // Si la página por defecto tampoco tiene acceso, usar Home
+      const targetPage = defaultHasAccess ? defaultPage : 'Home';
+      navigate(createPageUrl(targetPage), { replace: true });
     }
-  }, [user, pageName, navigate]);
+  }, [user, pageName, navigate, loading]);
 
-  // Si no hay usuario o no tiene permiso, no renderizar nada
-  // (el useEffect redirigirá)
-  if (!user || !canAccessPage(pageName, user.rol)) {
+  // Mientras carga, no mostrar nada
+  if (loading) {
+    return null;
+  }
+
+  // Si no hay usuario, no renderizar nada (el otro useEffect redirigirá)
+  if (!user) {
+    return null;
+  }
+
+  // Verificación final antes de renderizar
+  if (!canAccessPage(pageName, user.rol)) {
+    const defaultPage = getDefaultPage(user.rol);
+    const defaultHasAccess = canAccessPage(defaultPage, user.rol);
+    const targetPage = defaultHasAccess ? defaultPage : 'Home';
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center p-8">
@@ -42,7 +65,7 @@ export default function RoleProtectedRoute({ children, pageName }) {
             No tienes permiso para acceder a esta página.
           </p>
           <Button 
-            onClick={() => navigate(createPageUrl(getDefaultPage(user?.rol)))}
+            onClick={() => navigate(createPageUrl(targetPage), { replace: true })}
             className="bg-amber-600 hover:bg-amber-700"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />

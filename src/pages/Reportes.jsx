@@ -117,6 +117,18 @@ export default function Reportes() {
     },
   });
 
+  const { data: adelantos = [], isLoading: loadingAdelantos, error: errorAdelantos } = useQuery({
+    queryKey: ['adelantos'],
+    queryFn: async () => {
+      try {
+        return await base44.entities.Adelanto.list('-created_date', 1000);
+      } catch (error) {
+        console.error('Error cargando adelantos:', error);
+        throw error;
+      }
+    },
+  });
+
   // Ventas de HOY
   const ventasHoy = ventas.filter(v => {
     try {
@@ -143,9 +155,9 @@ export default function Reportes() {
     }
   });
 
-  const gastosFiltrados = gastos.filter(g => {
+  const gastosNormales = gastos.filter(g => {
     try {
-      const fechaGasto = parseISO(g.fecha_gasto);
+      const fechaGasto = parseISO(g.fecha_gasto || g.fecha);
       const inicio = startOfDay(new Date(fechaInicio));
       const fin = endOfDay(new Date(fechaFin));
       return fechaGasto >= inicio && fechaGasto <= fin;
@@ -155,45 +167,101 @@ export default function Reportes() {
     }
   });
 
-  // Separar flujos por moneda
+  const adelantosFiltrados = adelantos.filter(a => {
+    try {
+      const fechaA = parseISO(a.fecha_adelanto || a.fecha || a.createdAt);
+      const inicio = startOfDay(new Date(fechaInicio));
+      const fin = endOfDay(new Date(fechaFin));
+      return fechaA >= inicio && fechaA <= fin;
+    } catch (error) {
+      console.error('Error filtrando adelanto:', a, error);
+      return false;
+    }
+  }).map(a => ({
+    id: a.id,
+    categoria: 'Adelanto a Personal',
+    descripcion: `Adelanto: ${a.empleado || a.empleadoId || 'Empleado'}${a.descripcion ? ' - ' + a.descripcion : ''}`,
+    monto: a.monto || 0,
+    monto_original: a.monto_original || 0,
+    moneda_original: a.moneda_original,
+    metodo_pago: a.metodo_pago,
+    fecha_gasto: a.fecha_adelanto || a.fecha || a.createdAt,
+    comprobante: ''
+  }));
+
+  const gastosFiltrados = [...gastosNormales, ...adelantosFiltrados];
+
+  // Separar flujos por moneda - 3 grupos claros
   const metodosBolivares = (metodo) => metodo && metodo.endsWith('_bs');
-  const metodosDivisas = (metodo) => metodo && !metodo.endsWith('_bs') && !['cuentas_por_cobrar', 'mixto'].includes(metodo);
+  const metodosCOP = (metodo) => metodo && metodo.endsWith('_cop');
+  const metodosEfectivoUSD = (metodo) => metodo === 'efectivo_usd';
+  const metodosDivisas = (metodo) => metodo && !metodo.endsWith('_bs') && !metodo.endsWith('_cop') && !['cuentas_por_cobrar', 'mixto'].includes(metodo);
 
-  // Cálculos separados por caja - SIN CONVERSIÓN
+  // ── CAJA EFECTIVO USD (solo cash físico) ──
+  const totalVentasEfectivo = ventasFiltradas.filter(v => metodosEfectivoUSD(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0);
+  const totalGastosEfectivo = gastosFiltrados.filter(g => metodosEfectivoUSD(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
+  const netoEfectivo = totalVentasEfectivo - totalGastosEfectivo;
+
+  // ── DIVISAS DIGITALES (Binance, Zinli, PayPal, Zelle) ──
+  const metodosDigitalesUSD = (metodo) => metodo && !metodo.endsWith('_bs') && !metodo.endsWith('_cop') && metodo !== 'efectivo_usd' && !['cuentas_por_cobrar', 'mixto'].includes(metodo);
+  const totalVentasDigitales = ventasFiltradas.filter(v => metodosDigitalesUSD(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0);
+  const totalGastosDigitales = gastosFiltrados.filter(g => metodosDigitalesUSD(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
+  const netoDigitales = totalVentasDigitales - totalGastosDigitales;
+
+  // ── Total USD (efectivo + digitales) ──
   const totalVentasDivisas = ventasFiltradas.filter(v => metodosDivisas(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0);
-  const totalVentasBolivares = ventasFiltradas.filter(v => metodosBolivares(v.metodo_pago)).reduce((sum, v) => sum + (v.total_ves || 0), 0);
-  
   const totalGastosDivisas = gastosFiltrados.filter(g => metodosDivisas(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
-  const totalGastosBolivares = gastosFiltrados.filter(g => metodosBolivares(g.metodo_pago)).reduce((sum, g) => sum + (g.monto_original || g.monto || 0), 0);
-
   const netoDivisas = totalVentasDivisas - totalGastosDivisas;
+
+  // ── BOLÍVARES (Bs) ──
+  const totalVentasBolivares = ventasFiltradas.filter(v => metodosBolivares(v.metodo_pago)).reduce((sum, v) => sum + (v.total_ves || 0), 0);
+  const totalGastosBolivares = gastosFiltrados.filter(g => metodosBolivares(g.metodo_pago)).reduce((sum, g) => sum + (g.monto_original || g.monto || 0), 0);
   const netoBolivares = totalVentasBolivares - totalGastosBolivares;
 
+  // ── COP (Pesos Colombianos) ──
+  const totalVentasCOP = ventasFiltradas.filter(v => metodosCOP(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0);
+  const totalGastosCOP = gastosFiltrados.filter(g => metodosCOP(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
+  const netoCOP = totalVentasCOP - totalGastosCOP;
+
   const exportarReporte = () => {
+    const formatMonto = (v) => {
+      if (metodosBolivares(v.metodo_pago)) return `Bs ${(v.total_ves || 0).toFixed(2)}`;
+      return `$${(v.total_venta || 0).toFixed(2)}`;
+    };
+    const formatGasto = (g) => {
+      if (metodosBolivares(g.metodo_pago)) return `Bs ${(g.monto_original || g.monto || 0).toFixed(2)}`;
+      return `$${(g.monto || 0).toFixed(2)}`;
+    };
+
     const csvContent = [
       ["Reporte de Rentabilidad - Stop Time"],
       [`Período: ${format(new Date(fechaInicio), "dd/MM/yyyy", { locale: es })} - ${format(new Date(fechaFin), "dd/MM/yyyy", { locale: es })}`],
       [],
-      ["RESUMEN FINANCIERO"],
-      ["Total Ventas", `$${totalVentas.toFixed(2)}`],
-      ["Total Gastos", `$${totalGastos.toFixed(2)}`],
-      ["Ganancia Neta", `$${gananciaNeta.toFixed(2)}`],
+      ["RESUMEN FINANCIERO USD"],
+      ["Ventas USD", `$${totalVentasDivisas.toFixed(2)}`],
+      ["Gastos USD", `$${totalGastosDivisas.toFixed(2)}`],
+      ["Neto USD", `$${netoDivisas.toFixed(2)}`],
+      [],
+      ["RESUMEN FINANCIERO BOLÍVARES"],
+      ["Ventas Bs", `Bs ${totalVentasBolivares.toFixed(2)}`],
+      ["Gastos Bs", `Bs ${totalGastosBolivares.toFixed(2)}`],
+      ["Neto Bs", `Bs ${netoBolivares.toFixed(2)}`],
       [],
       ["DETALLE DE VENTAS"],
       ["Fecha", "Método Pago", "Monto"],
       ...ventasFiltradas.map(v => [
         format(parseISO(v.fecha_hora), "dd/MM/yyyy HH:mm", { locale: es }),
         v.metodo_pago,
-        `$${v.total_venta.toFixed(2)}`
+        formatMonto(v)
       ]),
       [],
       ["DETALLE DE GASTOS"],
       ["Fecha", "Descripción", "Categoría", "Monto"],
       ...gastosFiltrados.map(g => [
-        format(parseISO(g.fecha_gasto), "dd/MM/yyyy HH:mm", { locale: es }),
-        g.descripcion,
-        g.categoria,
-        `$${g.monto.toFixed(2)}`
+        format(parseISO(g.fecha_gasto || ''), "dd/MM/yyyy HH:mm", { locale: es }),
+        g.descripcion || '',
+        g.categoria || '',
+        formatGasto(g)
       ])
     ].map(row => row.join(',')).join('\n');
 
@@ -208,7 +276,7 @@ export default function Reportes() {
   };
 
   // Mostrar errores si existen
-  if (errorVentas || errorDetalles || errorGastos) {
+  if (errorVentas || errorDetalles || errorGastos || errorAdelantos) {
     return (
       <div className="p-4 md:p-8 min-h-screen">
         <div className="max-w-4xl mx-auto">
@@ -219,6 +287,7 @@ export default function Reportes() {
                 {errorVentas && 'Error cargando ventas. '}
                 {errorDetalles && 'Error cargando detalles. '}
                 {errorGastos && 'Error cargando gastos. '}
+                {errorAdelantos && 'Error cargando adelantos. '}
               </p>
               <Button 
                 onClick={() => window.location.reload()} 
@@ -234,328 +303,254 @@ export default function Reportes() {
   }
 
   return (
-    <div className="p-4 md:p-8 min-h-screen">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+      <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+        {/* Header Premium */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 py-2">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3">
-              <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-amber-600" />
-              <span className="leading-tight">Reporte de Rentabilidad</span>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+              <div className="p-2 rounded-xl" style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)' }}>
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+              Reporte de Rentabilidad
             </h1>
-            <p className="text-gray-500 mt-1 text-sm sm:text-base">Análisis simple: Ventas vs Gastos</p>
+            <p className="text-slate-400 mt-1 text-sm">Análisis financiero · Ventas vs Gastos</p>
           </div>
-          <Button onClick={exportarReporte} className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
+          <Button onClick={exportarReporte} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 w-full sm:w-auto">
             <Download className="w-4 h-4 mr-2" />
-            Exportar Reporte
+            Exportar CSV
           </Button>
         </div>
 
-        {/* SECCIÓN: Ventas de HOY - DETALLADAS */}
-        <Card className="shadow-lg border-none bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
-          <CardHeader className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <CardTitle className="text-base sm:text-xl flex items-center gap-2 text-green-800">
-                <Clock className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
-                <span className="leading-tight">Ventas de Hoy - {format(new Date(), "dd 'de' MMMM", { locale: es })}</span>
-              </CardTitle>
-              <div className="text-left sm:text-right">
-                <p className="text-xs sm:text-sm text-green-700 font-medium">{ventasHoy.length} ventas</p>
-                <p className="text-xl sm:text-2xl font-bold text-green-700">${totalVentasHoy.toFixed(2)}</p>
+        {/* Ventas de HOY */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.08))' }}>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-500/20">
+                <Clock className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Ventas de Hoy</h2>
+                <p className="text-emerald-300/70 text-sm">{format(new Date(), "EEEE dd 'de' MMMM", { locale: es })}</p>
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
+            <div className="text-left sm:text-right">
+              <p className="text-emerald-300 text-sm font-medium">{ventasHoy.length} ventas</p>
+              <p className="text-2xl font-black text-emerald-400">${totalVentasHoy.toFixed(2)}</p>
+            </div>
+          </div>
+          <div className="p-4 sm:p-6">
             {loadingVentas || loadingDetalles ? (
-              <Skeleton className="h-48 w-full" />
+              <Skeleton className="h-48 w-full rounded-xl bg-white/10" />
             ) : ventasHoy.length > 0 ? (
-              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                 {ventasHoy.map((venta) => (
-                  <VentaDetallada 
-                    key={venta.id} 
-                    venta={venta} 
-                    detalles={detallesVentas}
-                  />
+                  <VentaDetallada key={venta.id} venta={venta} detalles={detallesVentas} />
                 ))}
-                <div className="bg-green-100 p-3 sm:p-4 flex justify-between items-center">
-                  <span className="font-bold text-green-900 text-sm sm:text-lg">TOTAL DEL DÍA</span>
-                  <span className="text-xl sm:text-2xl font-bold text-green-700">${totalVentasHoy.toFixed(2)}</span>
+                <div className="p-3 sm:p-4 flex justify-between items-center" style={{ background: 'rgba(16,185,129,0.1)' }}>
+                  <span className="font-bold text-emerald-300 text-sm">TOTAL DEL DÍA</span>
+                  <span className="text-xl font-black text-emerald-400">${totalVentasHoy.toFixed(2)}</span>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12 bg-white rounded-xl">
-                <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500 font-medium">No hay ventas registradas hoy</p>
-                <p className="text-sm text-gray-400 mt-1">Las ventas procesadas aparecerán aquí</p>
+              <div className="text-center py-12 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <ShoppingCart className="w-14 h-14 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-400 font-medium">No hay ventas registradas hoy</p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Filtros de Fecha */}
-        <Card className="shadow-lg border-none">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Análisis por Período Personalizado
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Fecha Inicio</Label>
-                <Input
-                  type="date"
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Fecha Fin</Label>
-                <Input
-                  type="date"
-                  value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                />
-              </div>
+        <div className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-violet-400" />
+            <h3 className="text-white font-semibold">Período de Análisis</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-slate-400 text-xs">Desde</Label>
+              <Input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="bg-white/10 border-white/10 text-white" />
             </div>
-            <p className="text-sm text-gray-500 mt-3">
-              💡 Selecciona un rango de fechas para ver el análisis de rentabilidad del período
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Resumen Principal - CORREGIDO */}
-        <Card className="shadow-lg border-none bg-gradient-to-br from-amber-50 to-orange-50">
-          <CardHeader className="p-4 sm:p-6">
-            <CardTitle className="text-base sm:text-xl lg:text-2xl leading-tight">
-              Resumen del Período: {format(new Date(fechaInicio), "dd/MM/yy", { locale: es })} - {format(new Date(fechaFin), "dd/MM/yy", { locale: es })}
-            </CardTitle>
-            <p className="text-xs sm:text-sm text-gray-600 mt-1">
-              {ventasFiltradas.length} ventas • {gastosFiltrados.length} gastos
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-            {/* Resumen por moneda */}
-            <div className="bg-amber-100 p-4 rounded-xl">
-              <p className="text-sm font-semibold text-amber-900 mb-2">💰 Resumen General</p>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-gray-600">Ventas USD</p>
-                  <p className="font-bold text-green-700">${totalVentasDivisas.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Ventas Bs</p>
-                  <p className="font-bold text-green-700">Bs {totalVentasBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Gastos USD</p>
-                  <p className="font-bold text-red-700">${totalGastosDivisas.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Gastos Bs</p>
-                  <p className="font-bold text-red-700">Bs {totalGastosBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
-                </div>
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-slate-400 text-xs">Hasta</Label>
+              <Input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} className="bg-white/10 border-white/10 text-white" />
             </div>
+          </div>
+        </div>
 
-            {/* Caja USD */}
-            <div className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-200 to-indigo-200 opacity-30 rounded-xl"></div>
-              <div className="relative flex items-center p-4 sm:p-6 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-xl border-2 border-blue-300">
-                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                  <div className="p-2.5 sm:p-4 rounded-full bg-white shadow-lg flex-shrink-0">
-                    <DollarSign className="w-7 h-7 sm:w-10 sm:h-10 text-blue-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-blue-900 font-bold uppercase">💵 TOTAL CAJA USD</p>
-                    <p className={`text-2xl sm:text-3xl lg:text-4xl font-black truncate ${netoDivisas >= 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                      ${netoDivisas.toFixed(2)}
-                    </p>
-                    <div className="text-xs text-blue-700 mt-1 space-y-0.5">
-                      <p>📥 Ventas: ${totalVentasDivisas.toFixed(2)} | 📤 Gastos: ${totalGastosDivisas.toFixed(2)}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        {/* Resumen Principal - Cajas de moneda */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Efectivo USD */}
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.05))', border: '1px solid rgba(16,185,129,0.2)' }}>
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+            <p className="text-emerald-400/70 text-xs font-bold uppercase tracking-wider">💵 Caja Efectivo</p>
+            <p className={`text-3xl font-black mt-1 ${netoEfectivo >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${netoEfectivo.toFixed(2)}</p>
+            <div className="flex gap-4 mt-3 text-xs">
+              <span className="text-emerald-300/60">▲ ${totalVentasEfectivo.toFixed(2)}</span>
+              <span className="text-red-300/60">▼ ${totalGastosEfectivo.toFixed(2)}</span>
             </div>
-
-            {/* Caja Bolívares */}
-            <div className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-green-200 to-emerald-200 opacity-30 rounded-xl"></div>
-              <div className="relative flex items-center p-4 sm:p-6 bg-gradient-to-r from-green-100 to-emerald-100 rounded-xl border-2 border-green-300">
-                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                  <div className="p-2.5 sm:p-4 rounded-full bg-white shadow-lg flex-shrink-0">
-                    <TrendingUp className="w-7 h-7 sm:w-10 sm:h-10 text-green-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-green-900 font-bold uppercase">💳 TOTAL BANCO BS</p>
-                    <p className={`text-2xl sm:text-3xl lg:text-4xl font-black truncate ${netoBolivares >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                      Bs {netoBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
-                    </p>
-                    <div className="text-xs text-green-700 mt-1 space-y-0.5">
-                      <p>📥 Ventas: Bs {totalVentasBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })} | 📤 Gastos: Bs {totalGastosBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          </div>
+          {/* Divisas Digitales */}
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(79,70,229,0.05))', border: '1px solid rgba(99,102,241,0.2)' }}>
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+            <p className="text-indigo-400/70 text-xs font-bold uppercase tracking-wider">📱 Divisas Digitales</p>
+            <p className={`text-3xl font-black mt-1 ${netoDigitales >= 0 ? 'text-indigo-400' : 'text-red-400'}`}>${netoDigitales.toFixed(2)}</p>
+            <div className="flex gap-4 mt-3 text-xs">
+              <span className="text-indigo-300/60">▲ ${totalVentasDigitales.toFixed(2)}</span>
+              <span className="text-red-300/60">▼ ${totalGastosDigitales.toFixed(2)}</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          {/* Bolívares */}
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.05))', border: '1px solid rgba(245,158,11,0.2)' }}>
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+            <p className="text-amber-400/70 text-xs font-bold uppercase tracking-wider">💳 Banco Bolívares</p>
+            <p className={`text-3xl font-black mt-1 ${netoBolivares >= 0 ? 'text-amber-400' : 'text-red-400'}`}>Bs {netoBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+            <div className="flex gap-4 mt-3 text-xs">
+              <span className="text-amber-300/60">▲ Bs {totalVentasBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+              <span className="text-red-300/60">▼ Bs {totalGastosBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+          {/* COP */}
+          {(totalVentasCOP > 0 || totalGastosCOP > 0) && (
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(14,165,233,0.15), rgba(2,132,199,0.05))', border: '1px solid rgba(14,165,233,0.2)' }}>
+            <p className="text-sky-400/70 text-xs font-bold uppercase tracking-wider">🇨🇴 Pesos COP</p>
+            <p className={`text-3xl font-black mt-1 ${netoCOP >= 0 ? 'text-sky-400' : 'text-red-400'}`}>${netoCOP.toFixed(2)}</p>
+            <div className="flex gap-4 mt-3 text-xs">
+              <span className="text-sky-300/60">▲ ${totalVentasCOP.toFixed(2)}</span>
+              <span className="text-red-300/60">▼ ${totalGastosCOP.toFixed(2)}</span>
+            </div>
+          </div>
+          )}
+        </div>
 
-        {/* Tabs: Ventas y Gastos - CORREGIDO */}
+        {/* Tabs */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
         <Tabs defaultValue="ventas" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="ventas" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+          <TabsList className="grid w-full grid-cols-2 bg-transparent p-1">
+            <TabsTrigger value="ventas" className="flex items-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-300 text-slate-400 rounded-xl">
               <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Ventas del Período</span>
-              <span className="sm:hidden">Ventas</span>
+              <span className="hidden sm:inline">Ventas</span>
               <span className="text-xs">({ventasFiltradas.length})</span>
             </TabsTrigger>
-            <TabsTrigger value="gastos" className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="gastos" className="flex items-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-red-500/20 data-[state=active]:text-red-300 text-slate-400 rounded-xl">
               <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Gastos del Período</span>
-              <span className="sm:hidden">Gastos</span>
+              <span className="hidden sm:inline">Gastos</span>
               <span className="text-xs">({gastosFiltrados.length})</span>
             </TabsTrigger>
           </TabsList>
 
-          {/* Detalle de Ventas - CORREGIDO */}
           <TabsContent value="ventas">
-            <Card className="shadow-lg border-none">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5 text-green-600" />
-                  Detalle de Ventas del Período
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingVentas ? (
-                  <Skeleton className="h-64 w-full" />
-                ) : ventasFiltradas.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50">
-                          <TableHead>Fecha y Hora</TableHead>
-                          <TableHead>Método de Pago</TableHead>
-                          <TableHead className="text-right">Monto</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ventasFiltradas.map((venta) => (
-                          <TableRow key={venta.id} className="hover:bg-gray-50">
-                            <TableCell className="text-sm">
-                              {format(parseISO(venta.fecha_hora), "dd/MM/yyyy HH:mm", { locale: es })}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{venta.metodo_pago}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-bold text-green-600">
-                              {metodosBolivares(venta.metodo_pago) 
-                                ? `Bs ${(venta.total_ves || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
-                                : `$${venta.total_venta.toFixed(2)}`
-                              }
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="bg-blue-50 font-bold">
-                          <TableCell colSpan={2}>TOTAL USD</TableCell>
-                          <TableCell className="text-right text-blue-700 text-lg">
-                            ${totalVentasDivisas.toFixed(2)}
+            <div className="p-4 sm:p-6">
+              <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-emerald-400" /> Detalle de Ventas
+              </h3>
+              {loadingVentas ? (
+                <Skeleton className="h-64 w-full rounded-xl bg-white/10" />
+              ) : ventasFiltradas.length > 0 ? (
+                <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <Table>
+                    <TableHeader>
+                      <TableRow style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        <TableHead className="text-slate-400">Fecha</TableHead>
+                        <TableHead className="text-slate-400">Método</TableHead>
+                        <TableHead className="text-right text-slate-400">Monto</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ventasFiltradas.map((venta) => (
+                        <TableRow key={venta.id} className="border-white/5 hover:bg-white/5">
+                          <TableCell className="text-sm text-slate-300">
+                            {format(parseISO(venta.fecha_hora), "dd/MM/yy HH:mm", { locale: es })}
+                          </TableCell>
+                          <TableCell>
+                            <span className="px-2 py-0.5 rounded-md text-xs font-medium" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>{venta.metodo_pago}</span>
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-emerald-400">
+                            {metodosBolivares(venta.metodo_pago) 
+                              ? `Bs ${(venta.total_ves || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                              : `$${venta.total_venta.toFixed(2)}`
+                            }
                           </TableCell>
                         </TableRow>
-                        <TableRow className="bg-green-50 font-bold">
-                          <TableCell colSpan={2}>TOTAL BS</TableCell>
-                          <TableCell className="text-right text-green-700 text-lg">
-                            Bs {totalVentasBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <ShoppingCart className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-                    <p>No hay ventas en este período</p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Periodo: {format(new Date(fechaInicio), "dd/MM/yyyy", { locale: es })} - {format(new Date(fechaFin), "dd/MM/yyyy", { locale: es })}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      ))}
+                      <TableRow style={{ background: 'rgba(99,102,241,0.1)' }}>
+                        <TableCell colSpan={2} className="font-bold text-indigo-300">TOTAL USD</TableCell>
+                        <TableCell className="text-right text-indigo-300 font-black text-lg">${totalVentasDivisas.toFixed(2)}</TableCell>
+                      </TableRow>
+                      <TableRow style={{ background: 'rgba(245,158,11,0.1)' }}>
+                        <TableCell colSpan={2} className="font-bold text-amber-300">TOTAL BS</TableCell>
+                        <TableCell className="text-right text-amber-300 font-black text-lg">Bs {totalVentasBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <ShoppingCart className="w-14 h-14 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-400">No hay ventas en este período</p>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
-          {/* Detalle de Gastos - CORREGIDO */}
           <TabsContent value="gastos">
-            <Card className="shadow-lg border-none">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-red-600" />
-                  Detalle de Gastos del Período
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingGastos ? (
-                  <Skeleton className="h-64 w-full" />
-                ) : gastosFiltrados.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50">
-                          <TableHead>Fecha y Hora</TableHead>
-                          <TableHead>Descripción</TableHead>
-                          <TableHead>Categoría</TableHead>
-                          <TableHead className="text-right">Monto</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {gastosFiltrados.map((gasto) => (
-                          <TableRow key={gasto.id} className="hover:bg-gray-50">
-                            <TableCell className="text-sm">
-                              {format(parseISO(gasto.fecha_gasto), "dd/MM/yyyy HH:mm", { locale: es })}
-                            </TableCell>
-                            <TableCell className="font-medium">{gasto.descripcion}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{gasto.categoria}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-bold text-red-600">
-                              {metodosBolivares(gasto.metodo_pago)
-                                ? `Bs ${(gasto.monto_original || gasto.monto || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
-                                : `$${gasto.monto.toFixed(2)}`
-                              }
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="bg-blue-50 font-bold">
-                          <TableCell colSpan={3}>TOTAL USD</TableCell>
-                          <TableCell className="text-right text-blue-700 text-lg">
-                            ${totalGastosDivisas.toFixed(2)}
+            <div className="p-4 sm:p-6">
+              <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-red-400" /> Detalle de Gastos
+              </h3>
+              {loadingGastos ? (
+                <Skeleton className="h-64 w-full rounded-xl bg-white/10" />
+              ) : gastosFiltrados.length > 0 ? (
+                <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <Table>
+                    <TableHeader>
+                      <TableRow style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        <TableHead className="text-slate-400">Fecha</TableHead>
+                        <TableHead className="text-slate-400">Descripción</TableHead>
+                        <TableHead className="text-slate-400">Categoría</TableHead>
+                        <TableHead className="text-right text-slate-400">Monto</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {gastosFiltrados.map((gasto) => (
+                        <TableRow key={gasto.id} className="border-white/5 hover:bg-white/5">
+                          <TableCell className="text-sm text-slate-300">
+                            {format(parseISO(gasto.fecha_gasto), "dd/MM/yy HH:mm", { locale: es })}
+                          </TableCell>
+                          <TableCell className="font-medium text-slate-200">{gasto.descripcion}</TableCell>
+                          <TableCell>
+                            <span className="px-2 py-0.5 rounded-md text-xs font-medium" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>{gasto.categoria}</span>
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-red-400">
+                            {metodosBolivares(gasto.metodo_pago)
+                              ? `Bs ${(gasto.monto_original || gasto.monto || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                              : `$${gasto.monto.toFixed(2)}`
+                            }
                           </TableCell>
                         </TableRow>
-                        <TableRow className="bg-green-50 font-bold">
-                          <TableCell colSpan={3}>TOTAL BS</TableCell>
-                          <TableCell className="text-right text-green-700 text-lg">
-                            Bs {totalGastosBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-                    <p>No hay gastos en este período</p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Periodo: {format(new Date(fechaInicio), "dd/MM/yyyy", { locale: es })} - {format(new Date(fechaFin), "dd/MM/yyyy", { locale: es })}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      ))}
+                      <TableRow style={{ background: 'rgba(99,102,241,0.1)' }}>
+                        <TableCell colSpan={3} className="font-bold text-indigo-300">TOTAL USD</TableCell>
+                        <TableCell className="text-right text-indigo-300 font-black text-lg">${totalGastosDivisas.toFixed(2)}</TableCell>
+                      </TableRow>
+                      <TableRow style={{ background: 'rgba(245,158,11,0.1)' }}>
+                        <TableCell colSpan={3} className="font-bold text-amber-300">TOTAL BS</TableCell>
+                        <TableCell className="text-right text-amber-300 font-black text-lg">Bs {totalGastosBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <DollarSign className="w-14 h-14 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-400">No hay gastos en este período</p>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
+        </div>
       </div>
     </div>
   );

@@ -58,18 +58,18 @@ export default function RecetasPrimariasList({ recetas, detalles, onEdit, onDele
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <p className="text-xs text-gray-600">Cantidad</p>
                   <p className="text-lg font-bold text-blue-600">
-                    {receta.cantidad_resultante} {receta.unidad_medida}
+                    {receta.cantidad_resultante ?? 1} {receta.unidad_medida ?? 'unidad'}
                   </p>
                 </div>
                 <div className="bg-green-50 p-3 rounded-lg">
                   <p className="text-xs text-gray-600">Costo/Unidad</p>
                   <p className="text-lg font-bold text-green-600">
-                    ${receta.costo_por_unidad.toFixed(2)}
+                    ${(receta.costo_por_unidad ?? 0).toFixed(2)}
                   </p>
                 </div>
               </div>
 
-              {receta.tiempo_preparacion > 0 && (
+              {(receta.tiempo_preparacion ?? 0) > 0 && (
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Clock className="w-4 h-4" />
                   <span>{receta.tiempo_preparacion} minutos</span>
@@ -97,7 +97,7 @@ export default function RecetasPrimariasList({ recetas, detalles, onEdit, onDele
               <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
                 <p className="text-xs text-gray-600">Costo Total</p>
                 <p className="text-xl font-bold text-amber-600">
-                  ${receta.costo_total.toFixed(2)}
+                  ${(receta.costo_total ?? 0).toFixed(2)}
                 </p>
               </div>
 

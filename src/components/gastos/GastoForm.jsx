@@ -19,18 +19,18 @@ export default function GastoForm({ gasto, onSubmit, onCancel, isLoading }) {
     comprobante: "",
     recurrente: false,
     fecha_vencimiento: "",
-    afecta_caja: true,
-    tasa_bs: ""
+    afecta_caja: true
   });
 
   // Detectar moneda según método de pago para guardar referencia
   const getMonedaMetodo = (metodo) => {
-    if (metodo === 'nequi_cop') return { simbolo: '₡', nombre: 'COP' };
+    if (metodo === 'efectivo_cop' || metodo === 'nequi_cop') return { simbolo: '₡', nombre: 'COP' };
     if (metodo === 'tarjeta_bs' || metodo === 'pago_movil_bs') return { simbolo: 'Bs', nombre: 'VES' };
     return { simbolo: '$', nombre: 'USD' };
   };
 
   const esMetodoBs = formData.metodo_pago === 'tarjeta_bs' || formData.metodo_pago === 'pago_movil_bs';
+  const esMetodoCop = formData.metodo_pago === 'efectivo_cop' || formData.metodo_pago === 'nequi_cop';
 
   // Cargar datos cuando se edita
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function GastoForm({ gasto, onSubmit, onCancel, isLoading }) {
     // Obtener moneda para referencia
     const moneda = getMonedaMetodo(formData.metodo_pago);
 
-    // Preparar datos para enviar (siempre en USD)
+    // Preparar datos para enviar
     const dataToSubmit = {
       fecha_gasto: new Date(formData.fecha_gasto).toISOString(),
       descripcion: formData.descripcion.trim(),
@@ -80,16 +80,10 @@ export default function GastoForm({ gasto, onSubmit, onCancel, isLoading }) {
       metodo_pago: formData.metodo_pago,
       moneda_original: moneda.nombre,
       monto_original: montoNum,
-      tasa_cambio: 1,
       comprobante: formData.comprobante.trim(),
       recurrente: formData.recurrente,
       afecta_caja: formData.afecta_caja
     };
-
-    // Si es método Bs, agregar tasa al comprobante
-    if (esMetodoBs && formData.tasa_bs) {
-      dataToSubmit.comprobante = `Tasa Bs: ${formData.tasa_bs}${dataToSubmit.comprobante ? ' | ' + dataToSubmit.comprobante : ''}`;
-    }
 
     // Solo incluir fecha_vencimiento si tiene valor
     if (formData.fecha_vencimiento) {
@@ -121,10 +115,10 @@ export default function GastoForm({ gasto, onSubmit, onCancel, isLoading }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="monto">Monto ({esMetodoBs ? 'Bs' : 'en USD'}) *</Label>
+              <Label htmlFor="monto">Monto ({esMetodoBs ? 'Bs' : esMetodoCop ? 'COP' : 'USD'}) *</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
-                  {esMetodoBs ? 'Bs' : '$'}
+                  {esMetodoBs ? 'Bs' : esMetodoCop ? '₡' : '$'}
                 </span>
                 <Input
                   id="monto"
@@ -135,11 +129,11 @@ export default function GastoForm({ gasto, onSubmit, onCancel, isLoading }) {
                   onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
                   required
                   placeholder="0.00"
-                  className={`pl-10 ${esMetodoBs ? 'bg-yellow-50 border-yellow-300' : ''}`}
+                  className={`pl-10 ${esMetodoBs || esMetodoCop ? 'bg-yellow-50 border-yellow-300' : ''}`}
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                {esMetodoBs ? 'Ingrese el monto en Bolívares' : 'Ingrese el monto en dólares'}
+                {esMetodoBs ? 'Ingrese el monto en Bolívares' : esMetodoCop ? 'Ingrese el monto en Pesos COP' : 'Ingrese el monto en dólares'}
               </p>
             </div>
 
@@ -179,6 +173,7 @@ export default function GastoForm({ gasto, onSubmit, onCancel, isLoading }) {
                   <SelectItem value="zinli_usd">📱 Zinli</SelectItem>
                   <SelectItem value="paypal_usd">🌐 PayPal</SelectItem>
                   <SelectItem value="zelle_usd">🏦 Zelle</SelectItem>
+                  <SelectItem value="efectivo_cop">💵 Efectivo COP</SelectItem>
                   <SelectItem value="nequi_cop">📱 Nequi</SelectItem>
                   <SelectItem value="tarjeta_bs">💳 Tarjeta Bs</SelectItem>
                   <SelectItem value="pago_movil_bs">📱 Pago Móvil</SelectItem>
@@ -199,21 +194,7 @@ export default function GastoForm({ gasto, onSubmit, onCancel, isLoading }) {
               />
             </div>
 
-            {esMetodoBs && (
-              <div className="space-y-2">
-                <Label htmlFor="tasa_bs">Tasa Bs del día</Label>
-                <Input
-                  id="tasa_bs"
-                  type="number"
-                  step="0.01"
-                  value={formData.tasa_bs}
-                  onChange={(e) => setFormData({ ...formData, tasa_bs: e.target.value })}
-                  placeholder="Ej: 55.50"
-                  className="bg-yellow-50 border-yellow-300"
-                />
-                <p className="text-xs text-gray-500">Esta tasa se guardará en el comprobante</p>
-              </div>
-            )}
+
 
             <div className="space-y-2">
               <Label htmlFor="comprobante">Número de Comprobante</Label>

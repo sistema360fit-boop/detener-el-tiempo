@@ -47,16 +47,32 @@ export default function EstadosCuenta() {
 
   const tasaActual = tasasCambio.find(t => t.activa)?.tasa_bs_usd || 50;
 
+  // Cuentas consolidadas
   const metodosConfig = {
-    efectivo_usd: { label: "💵 Efectivo USD", icono: "💵", grupo: "USD" },
+    efectivo: { label: "💵 Efectivo Dólares", icono: "💵", grupo: "USD" },
+    bolivares: { label: "🇻🇪 Bolívares", icono: "💳", grupo: "VES" },
     binance_usd: { label: "📱 Binance", icono: "📱", grupo: "USD" },
     zinli_usd: { label: "📱 Zinli", icono: "📱", grupo: "USD" },
     paypal_usd: { label: "🌐 PayPal", icono: "🌐", grupo: "USD" },
     zelle_usd: { label: "🏦 Zelle", icono: "🏦", grupo: "USD" },
     nequi_cop: { label: "📱 Nequi", icono: "📱", grupo: "COP" },
-    tarjeta_bs: { label: "💳 Tarjeta Bs", icono: "💳", grupo: "VES" },
-    pago_movil_bs: { label: "📱 Pago Móvil", icono: "📱", grupo: "VES" },
     cuentas_por_cobrar: { label: "📋 Cuentas por Cobrar", icono: "📋", grupo: "USD" }
+  };
+
+  // Mapeo: método individual → cuenta consolidada
+  const metodoMap = {
+    efectivo_usd: 'efectivo',
+    efectivo_cop: 'efectivo',
+    efectivo: 'efectivo',
+    tarjeta_bs: 'bolivares',
+    pago_movil_bs: 'bolivares',
+    bolivares: 'bolivares',
+    binance_usd: 'binance_usd',
+    zinli_usd: 'zinli_usd',
+    paypal_usd: 'paypal_usd',
+    zelle_usd: 'zelle_usd',
+    nequi_cop: 'nequi_cop',
+    cuentas_por_cobrar: 'cuentas_por_cobrar'
   };
 
   const ventasFiltradas = ventas.filter(v => {
@@ -86,91 +102,63 @@ export default function EstadosCuenta() {
   // Calcular estado de cada cuenta
   const calcularEstadoCuentas = () => {
     const cuentas = {};
+    const getCuenta = (mp) => metodoMap[mp] || mp;
     
-    // Inicializar
+    // Inicializar cuentas consolidadas
     Object.keys(metodosConfig).forEach(metodo => {
       cuentas[metodo] = { 
         metodo,
         ...metodosConfig[metodo],
         entradas: 0, 
         salidas: 0,
-        entradas_moneda_local: 0, // Para mostrar en Bs o COP
+        entradas_moneda_local: 0,
         salidas_moneda_local: 0,
         cantidad_entradas: 0,
         cantidad_salidas: 0
       };
     });
 
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("🔍 DIAGNÓSTICO COMPLETO DE CUENTAS");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    
-    // Diagnosticar TODAS las ventas (no filtradas)
-    console.log("\n📦 TODAS LAS VENTAS EN SISTEMA:", ventas.length);
-    const ventasCOPTotal = ventas.filter(v => v.metodo_pago === 'nequi_cop');
-    console.log("💰 Ventas COP en sistema:", ventasCOPTotal.length);
-    ventasCOPTotal.slice(0, 5).forEach(v => {
-      console.log(`   - V-${v.id.substring(0,8)}: ${v.metodo_pago} | USD:${v.total_venta} | COP:${v.total_cop || 'N/A'} | Fecha:${v.fecha_hora}`);
-    });
-    
-    console.log("\n📅 VENTAS FILTRADAS POR FECHA:", ventasFiltradas.length);
-    console.log("   Rango: ", fechaInicio, "→", fechaFin);
-    
-    // LOG: Ventas por método (filtradas)
-    const ventasPorMetodo = {};
-    ventasFiltradas.forEach(v => {
-      ventasPorMetodo[v.metodo_pago] = (ventasPorMetodo[v.metodo_pago] || 0) + 1;
-    });
-    console.log("📊 Ventas por método (filtradas):", ventasPorMetodo);
-    
-    const ventasCOPFiltradas = ventasFiltradas.filter(v => v.metodo_pago === 'nequi_cop');
-    console.log("💵 Ventas COP filtradas:", ventasCOPFiltradas.length);
-    ventasCOPFiltradas.forEach(v => {
-      console.log(`   - V-${v.id.substring(0,8)}: ${v.metodo_pago} | USD:${v.total_venta} | COP:${v.total_cop || 'N/A'}`);
-    });
-
     // Entradas: Ventas simples
     ventasFiltradas.forEach(venta => {
-      if (venta.metodo_pago !== 'mixto' && venta.metodo_pago !== 'cuentas_por_cobrar' && cuentas[venta.metodo_pago]) {
-        const monto = venta.total_venta;
-        cuentas[venta.metodo_pago].entradas += monto;
-        cuentas[venta.metodo_pago].cantidad_entradas += 1;
-        
-        // Si es método en Bs, guardar también el monto en Bs
-        if (venta.metodo_pago === 'tarjeta_bs' || venta.metodo_pago === 'pago_movil_bs') {
-          cuentas[venta.metodo_pago].entradas_moneda_local += (venta.total_ves || 0);
-        }
-        // Si es método en COP, guardar también el monto en COP
-        if (venta.metodo_pago === 'nequi_cop') {
-          cuentas[venta.metodo_pago].entradas_moneda_local += (venta.total_cop || 0);
-        }
+      if (venta.metodo_pago === 'mixto' || venta.metodo_pago === 'cuentas_por_cobrar') return;
+      const key = getCuenta(venta.metodo_pago);
+      if (!cuentas[key]) return;
+
+      cuentas[key].entradas += venta.total_venta;
+      cuentas[key].cantidad_entradas += 1;
+      
+      if (key === 'bolivares') {
+        cuentas[key].entradas_moneda_local += (venta.total_ves || 0);
+      }
+      if (key === 'nequi_cop') {
+        cuentas[key].entradas_moneda_local += (venta.total_cop || 0);
       }
     });
 
     // Entradas: Pagos mixtos
     const ventasIds = ventasFiltradas.map(v => v.id);
     pagosMixtos.forEach(pago => {
-      if (ventasIds.includes(pago.venta_id) && pago.metodo_pago !== 'cuentas_por_cobrar' && cuentas[pago.metodo_pago]) {
-        const monto = pago.monto_usd;
-        cuentas[pago.metodo_pago].entradas += monto;
-        cuentas[pago.metodo_pago].cantidad_entradas += 1;
-        
-        // Si es método en Bs, calcular monto en Bs (usando monto_original si está en VES)
-        if (pago.metodo_pago === 'tarjeta_bs' || pago.metodo_pago === 'pago_movil_bs') {
-          if (pago.moneda === 'ves' && pago.monto_original) {
-            cuentas[pago.metodo_pago].entradas_moneda_local += pago.monto_original;
-          } else {
-            // Si no tiene monto_original, convertir usando tasa
-            cuentas[pago.metodo_pago].entradas_moneda_local += (monto * tasaActual);
-          }
+      if (!ventasIds.includes(pago.venta_id)) return;
+      if (pago.metodo_pago === 'cuentas_por_cobrar') return;
+      const key = getCuenta(pago.metodo_pago);
+      if (!cuentas[key]) return;
+
+      const monto = pago.monto_usd || pago.monto || 0;
+      cuentas[key].entradas += monto;
+      cuentas[key].cantidad_entradas += 1;
+      
+      if (key === 'bolivares') {
+        if (pago.moneda === 'ves' && pago.monto_original) {
+          cuentas[key].entradas_moneda_local += pago.monto_original;
+        } else {
+          cuentas[key].entradas_moneda_local += (monto * tasaActual);
         }
-        // Si es método en COP
-        if (pago.metodo_pago === 'nequi_cop') {
-          if (pago.moneda === 'cop' && pago.monto_original) {
-            cuentas[pago.metodo_pago].entradas_moneda_local += pago.monto_original;
-          } else {
-            cuentas[pago.metodo_pago].entradas_moneda_local += (monto * 4000);
-          }
+      }
+      if (key === 'nequi_cop') {
+        if (pago.moneda === 'cop' && pago.monto_original) {
+          cuentas[key].entradas_moneda_local += pago.monto_original;
+        } else {
+          cuentas[key].entradas_moneda_local += (monto * 4000);
         }
       }
     });
@@ -188,58 +176,51 @@ export default function EstadosCuenta() {
     });
 
     pagosCuentasFiltrados.forEach(pago => {
-      if (cuentas[pago.metodo_pago]) {
-        const monto = pago.monto_pagado;
-        cuentas[pago.metodo_pago].entradas += monto;
-        cuentas[pago.metodo_pago].cantidad_entradas += 1;
-        
-        // Si es método en Bs
-        if (pago.metodo_pago === 'tarjeta_bs' || pago.metodo_pago === 'pago_movil_bs') {
-          cuentas[pago.metodo_pago].entradas_moneda_local += (monto * tasaActual);
-        }
-        // Si es método en COP
-        if (pago.metodo_pago === 'nequi_cop') {
-          cuentas[pago.metodo_pago].entradas_moneda_local += (monto * 4000);
-        }
+      const key = getCuenta(pago.metodo_pago);
+      if (!cuentas[key]) return;
+
+      const monto = pago.monto_pagado;
+      cuentas[key].entradas += monto;
+      cuentas[key].cantidad_entradas += 1;
+      
+      if (key === 'bolivares') {
+        cuentas[key].entradas_moneda_local += (monto * tasaActual);
+      }
+      if (key === 'nequi_cop') {
+        cuentas[key].entradas_moneda_local += (monto * 4000);
       }
     });
 
     // Salidas: Gastos
     gastosFiltrados.forEach(gasto => {
-      if (cuentas[gasto.metodo_pago]) {
-        const monto = gasto.monto;
-        cuentas[gasto.metodo_pago].salidas += monto;
-        cuentas[gasto.metodo_pago].cantidad_salidas += 1;
-        
-        // Si es método en Bs y tiene monto_original en VES
-        if (gasto.metodo_pago === 'tarjeta_bs' || gasto.metodo_pago === 'pago_movil_bs') {
-          if (gasto.moneda_original === 'VES' && gasto.monto_original) {
-            cuentas[gasto.metodo_pago].salidas_moneda_local += gasto.monto_original;
-          } else {
-            cuentas[gasto.metodo_pago].salidas_moneda_local += (monto * tasaActual);
-          }
+      const key = getCuenta(gasto.metodo_pago);
+      if (!cuentas[key]) return;
+
+      const monto = gasto.monto;
+      cuentas[key].salidas += monto;
+      cuentas[key].cantidad_salidas += 1;
+      
+      if (key === 'bolivares') {
+        if (gasto.moneda_original === 'VES' && gasto.monto_original) {
+          cuentas[key].salidas_moneda_local += gasto.monto_original;
+        } else {
+          cuentas[key].salidas_moneda_local += (monto * tasaActual);
         }
-        // Si es método en COP
-        if (gasto.metodo_pago === 'nequi_cop') {
-          if (gasto.moneda_original === 'COP' && gasto.monto_original) {
-            cuentas[gasto.metodo_pago].salidas_moneda_local += gasto.monto_original;
-          } else {
-            cuentas[gasto.metodo_pago].salidas_moneda_local += (monto * 4000);
-          }
+      }
+      if (key === 'nequi_cop') {
+        if (gasto.moneda_original === 'COP' && gasto.monto_original) {
+          cuentas[key].salidas_moneda_local += gasto.monto_original;
+        } else {
+          cuentas[key].salidas_moneda_local += (monto * 4000);
         }
       }
     });
 
-    // Log resultados
-    console.log("\n💳 RESUMEN FINAL DE CUENTAS:");
+    // Calcular saldos
     Object.keys(cuentas).forEach(metodo => {
       const cuenta = cuentas[metodo];
       cuenta.saldo = cuenta.entradas - cuenta.salidas;
       cuenta.total_movimientos = cuenta.cantidad_entradas + cuenta.cantidad_salidas;
-      
-      if (cuenta.total_movimientos > 0) {
-        console.log(`✅ ${metodo}: Entradas=₡${cuenta.entradas.toFixed(2)} Salidas=₡${cuenta.salidas.toFixed(2)} Saldo=₡${cuenta.saldo.toFixed(2)} Movs=${cuenta.total_movimientos}`);
-      }
     });
     
     const cuentasActivas = Object.values(cuentas).filter(c => c.total_movimientos > 0);
@@ -272,10 +253,10 @@ export default function EstadosCuenta() {
 
   // Solo efectivo USD en el total general
   const totalEntradasGeneral = cuentas
-    .filter(c => c.metodo === 'efectivo_usd')
+    .filter(c => c.metodo === 'efectivo')
     .reduce((sum, c) => sum + c.entradas, 0);
   const totalSalidasGeneral = cuentas
-    .filter(c => c.metodo === 'efectivo_usd')
+    .filter(c => c.metodo === 'efectivo')
     .reduce((sum, c) => sum + c.salidas, 0);
   const saldoGeneral = totalEntradasGeneral - totalSalidasGeneral;
 
@@ -342,9 +323,9 @@ export default function EstadosCuenta() {
           <MigracionMetodosPago onComplete={handleMigracionCompleta} />
         )}
 
-        {/* Diagnóstico específico para pesos - solo si hay transacciones pero no cuentas */}
-        {((cuentasCOP.length === 0 && (ventasFiltradas.some(v => v.metodo_pago === 'nequi_cop') || gastosFiltrados.some(g => g.metodo_pago === 'nequi_cop'))) || 
-          (cuentasVES.length === 0 && (ventasFiltradas.some(v => v.metodo_pago === 'tarjeta_bs' || v.metodo_pago === 'pago_movil_bs') || gastosFiltrados.some(g => g.metodo_pago === 'tarjeta_bs' || g.metodo_pago === 'pago_movil_bs')))) && 
+        {/* Diagnóstico específico para pesos/bolívares */}
+        {((cuentasCOP.length === 0 && ventasFiltradas.some(v => metodoMap[v.metodo_pago] === 'nequi_cop')) || 
+          (cuentasVES.length === 0 && ventasFiltradas.some(v => metodoMap[v.metodo_pago] === 'bolivares'))) && 
          !mostrarDiagnostico && (
           <div className="bg-purple-50 border-2 border-purple-500 rounded-lg p-4">
             <div className="flex items-start justify-between gap-4">
@@ -376,30 +357,6 @@ export default function EstadosCuenta() {
             queryClient.invalidateQueries({ queryKey: ['pagos-mixtos'] });
             setMostrarDiagnostico(false);
           }} />
-        )}
-
-        {/* Reparador COP - solo si hay transacciones pero no se reflejan en cuentas */}
-        {cuentas.length === 0 && (ventasFiltradas.filter(v => v.metodo_pago !== 'cuentas_por_cobrar' && v.metodo_pago !== 'mixto').length > 0 || gastosFiltrados.length > 0) && !mostrarMigracionForzada && (
-          <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-500 rounded-lg p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3 flex-1">
-                <div className="p-2 bg-red-100 rounded-full">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-red-900 mb-1">🔧 REPARADOR COP</h3>
-                  <p className="text-sm text-red-800 mb-2">
-                    Hay transacciones registradas pero no se muestran. Usa el reparador para normalizar.
-                  </p>
-                </div>
-              </div>
-              <Link to={createPageUrl('ReparadorCOP')}>
-                <Button className="bg-red-600 hover:bg-red-700 whitespace-nowrap">
-                  🔧 Reparar Ahora
-                </Button>
-              </Link>
-            </div>
-          </div>
         )}
 
         {mostrarMigracionForzada && (
@@ -492,8 +449,8 @@ export default function EstadosCuenta() {
         {/* Cuentas en USD - Separadas por método */}
         {cuentasUSD.length > 0 && (
           <div className="space-y-6">
-            {/* Efectivo USD */}
-            {cuentasUSD.filter(c => c.metodo === 'efectivo_usd').map(cuenta => {
+            {/* Efectivo Dólares (incluye USD + COP convertido) */}
+            {cuentasUSD.filter(c => c.metodo === 'efectivo').map(cuenta => {
               const saldoPositivo = cuenta.saldo >= 0;
               return (
                 <Card key={cuenta.metodo} className="shadow-lg border-2 border-green-500">
@@ -716,136 +673,68 @@ export default function EstadosCuenta() {
           </Card>
         )}
 
-        {/* Cuentas en VES - Separadas por método */}
-        {cuentasVES.length > 0 && (
-          <div className="space-y-6">
-            {/* Tarjeta Bs */}
-            {cuentasVES.filter(c => c.metodo === 'tarjeta_bs').map(cuenta => {
-              const saldoPositivo = cuenta.saldo >= 0;
-              return (
-                <Card key={cuenta.metodo} className="shadow-lg border-2 border-amber-500">
-                  <CardHeader className="bg-gradient-to-r from-amber-100 to-orange-100">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-xl flex items-center gap-2">
-                        <span className="text-3xl">{cuenta.icono}</span>
-                        {cuenta.label}
-                      </CardTitle>
-                      <span className={`text-2xl font-bold ${saldoPositivo ? 'text-amber-700' : 'text-red-700'}`}>
-                        ${cuenta.saldo.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                      <div className="bg-green-50 rounded-lg p-4 text-center">
-                       <p className="text-sm text-gray-600 mb-1">💰 Entradas</p>
-                       <p className="text-xl font-bold text-green-600">
-                         Bs {cuenta.entradas_moneda_local.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                       </p>
-                       <p className="text-xs text-gray-500 mt-1">
-                         ≈ ${cuenta.entradas.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USD
-                       </p>
-                      </div>
-                      <div className="bg-red-50 rounded-lg p-4 text-center">
-                       <p className="text-sm text-gray-600 mb-1">💸 Salidas</p>
-                       <p className="text-xl font-bold text-red-600">
-                         Bs {cuenta.salidas_moneda_local.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                       </p>
-                       <p className="text-xs text-gray-500 mt-1">
-                         ≈ ${cuenta.salidas.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USD
-                       </p>
-                      </div>
-                      <div className={`rounded-lg p-4 text-center ${saldoPositivo ? 'bg-amber-100' : 'bg-red-100'}`}>
-                       <p className="text-sm text-gray-600 mb-1">✅ Saldo</p>
-                       <p className={`text-xl font-bold ${saldoPositivo ? 'text-amber-700' : 'text-red-700'}`}>
-                         Bs {(cuenta.entradas_moneda_local - cuenta.salidas_moneda_local).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                       </p>
-                       <p className="text-xs text-gray-500 mt-1">
-                         ≈ ${cuenta.saldo.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USD
-                       </p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 text-center">
-                        <p className="text-sm text-gray-600 mb-1">📊 Movimientos</p>
-                        <p className="text-xl font-bold text-gray-700">
-                          {cuenta.total_movimientos}
-                        </p>
-                      </div>
-                    </div>
-                    <Link to={createPageUrl(`EstadoCuentaDetalle?metodo=${cuenta.metodo}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
-                      <Button className="w-full bg-amber-600 hover:bg-amber-700">
-                        <Eye className="w-4 h-4 mr-2" />
-                        Ver Extracto Completo
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              );
-            })}
-
-            {/* Pago Móvil Bs */}
-            {cuentasVES.filter(c => c.metodo === 'pago_movil_bs').map(cuenta => {
-              const saldoPositivo = cuenta.saldo >= 0;
-              return (
-                <Card key={cuenta.metodo} className="shadow-lg border-2 border-orange-500">
-                  <CardHeader className="bg-gradient-to-r from-orange-100 to-red-100">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-xl flex items-center gap-2">
-                        <span className="text-3xl">{cuenta.icono}</span>
-                        {cuenta.label}
-                      </CardTitle>
-                      <span className={`text-2xl font-bold ${saldoPositivo ? 'text-orange-700' : 'text-red-700'}`}>
-                        ${cuenta.saldo.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                      <div className="bg-green-50 rounded-lg p-4 text-center">
-                       <p className="text-sm text-gray-600 mb-1">💰 Entradas</p>
-                       <p className="text-xl font-bold text-green-600">
-                         Bs {cuenta.entradas_moneda_local.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                       </p>
-                       <p className="text-xs text-gray-500 mt-1">
-                         ≈ ${cuenta.entradas.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USD
-                       </p>
-                      </div>
-                      <div className="bg-red-50 rounded-lg p-4 text-center">
-                       <p className="text-sm text-gray-600 mb-1">💸 Salidas</p>
-                       <p className="text-xl font-bold text-red-600">
-                         Bs {cuenta.salidas_moneda_local.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                       </p>
-                       <p className="text-xs text-gray-500 mt-1">
-                         ≈ ${cuenta.salidas.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USD
-                       </p>
-                      </div>
-                      <div className={`rounded-lg p-4 text-center ${saldoPositivo ? 'bg-orange-100' : 'bg-red-100'}`}>
-                       <p className="text-sm text-gray-600 mb-1">✅ Saldo</p>
-                       <p className={`text-xl font-bold ${saldoPositivo ? 'text-orange-700' : 'text-red-700'}`}>
-                         Bs {(cuenta.entradas_moneda_local - cuenta.salidas_moneda_local).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                       </p>
-                       <p className="text-xs text-gray-500 mt-1">
-                         ≈ ${cuenta.saldo.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USD
-                       </p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 text-center">
-                        <p className="text-sm text-gray-600 mb-1">📊 Movimientos</p>
-                        <p className="text-xl font-bold text-gray-700">
-                          {cuenta.total_movimientos}
-                        </p>
-                      </div>
-                    </div>
-                    <Link to={createPageUrl(`EstadoCuentaDetalle?metodo=${cuenta.metodo}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
-                      <Button className="w-full bg-orange-600 hover:bg-orange-700">
-                        <Eye className="w-4 h-4 mr-2" />
-                        Ver Extracto Completo
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+        {/* Cuenta Bolívares (consolidada: tarjeta + pago móvil) */}
+        {cuentasVES.length > 0 && cuentasVES.map(cuenta => {
+          const saldoPositivo = cuenta.saldo >= 0;
+          return (
+            <Card key={cuenta.metodo} className="shadow-lg border-2 border-amber-500">
+              <CardHeader className="bg-gradient-to-r from-amber-100 to-orange-100">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <span className="text-3xl">{cuenta.icono}</span>
+                    {cuenta.label}
+                  </CardTitle>
+                  <span className={`text-2xl font-bold ${saldoPositivo ? 'text-amber-700' : 'text-red-700'}`}>
+                    ${cuenta.saldo.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="bg-green-50 rounded-lg p-4 text-center">
+                   <p className="text-sm text-gray-600 mb-1">💰 Entradas</p>
+                   <p className="text-xl font-bold text-green-600">
+                     Bs {cuenta.entradas_moneda_local.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                   </p>
+                   <p className="text-xs text-gray-500 mt-1">
+                     ≈ ${cuenta.entradas.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USD
+                   </p>
+                  </div>
+                  <div className="bg-red-50 rounded-lg p-4 text-center">
+                   <p className="text-sm text-gray-600 mb-1">💸 Salidas</p>
+                   <p className="text-xl font-bold text-red-600">
+                     Bs {cuenta.salidas_moneda_local.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                   </p>
+                   <p className="text-xs text-gray-500 mt-1">
+                     ≈ ${cuenta.salidas.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USD
+                   </p>
+                  </div>
+                  <div className={`rounded-lg p-4 text-center ${saldoPositivo ? 'bg-amber-100' : 'bg-red-100'}`}>
+                   <p className="text-sm text-gray-600 mb-1">✅ Saldo</p>
+                   <p className={`text-xl font-bold ${saldoPositivo ? 'text-amber-700' : 'text-red-700'}`}>
+                     Bs {(cuenta.entradas_moneda_local - cuenta.salidas_moneda_local).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                   </p>
+                   <p className="text-xs text-gray-500 mt-1">
+                     ≈ ${cuenta.saldo.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USD
+                   </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 text-center">
+                    <p className="text-sm text-gray-600 mb-1">📊 Movimientos</p>
+                    <p className="text-xl font-bold text-gray-700">
+                      {cuenta.total_movimientos}
+                    </p>
+                  </div>
+                </div>
+                <Link to={createPageUrl(`EstadoCuentaDetalle?metodo=${cuenta.metodo}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
+                  <Button className="w-full bg-amber-600 hover:bg-amber-700">
+                    <Eye className="w-4 h-4 mr-2" />
+                    Ver Extracto Completo
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          );
+        })}
 
         {cuentas.length === 0 && (ventasFiltradas.filter(v => v.metodo_pago !== 'cuentas_por_cobrar' && v.metodo_pago !== 'mixto').length > 0 || gastosFiltrados.length > 0) && (
           <Card className="shadow-lg border-2 border-red-500">

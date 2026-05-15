@@ -191,7 +191,7 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                                   {plato.tiene_piezas ? (
                                     <span className="ml-2 text-xs text-blue-600">(Por piezas)</span>
                                   ) : (
-                                    ` - $${plato.precio?.toFixed(2)}`
+                                    ` - ${(plato.precio ?? 0).toFixed(2)}`
                                   )}
                                 </CommandItem>
                               ))}
@@ -211,7 +211,7 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                           onClick={() => setVarianteSeleccionada("6")}
                           className={varianteSeleccionada === "6" ? "bg-blue-600" : ""}
                         >
-                          6 Piezas (${platos.find(p => p.id === platoSeleccionado)?.precio_6?.toFixed(2)})
+                          6 Piezas (${(platos.find(p => p.id === platoSeleccionado)?.precio_6 ?? 0).toFixed(2)})
                         </Button>
                         <Button
                           type="button"
@@ -220,7 +220,7 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                           onClick={() => setVarianteSeleccionada("12")}
                           className={varianteSeleccionada === "12" ? "bg-blue-600" : ""}
                         >
-                          12 Piezas (${platos.find(p => p.id === platoSeleccionado)?.precio_12?.toFixed(2)})
+                          12 Piezas (${(platos.find(p => p.id === platoSeleccionado)?.precio_12 ?? 0).toFixed(2)})
                         </Button>
                       </div>
                     )}
@@ -294,8 +294,8 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                           </Button>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600">{plato.cantidad}x ${plato.precio.toFixed(2)}</span>
-                          <span className="font-bold text-amber-600">${(plato.precio * plato.cantidad).toFixed(2)}</span>
+                          <span className="text-gray-600">${(plato.cantidad ?? 0)}x ${(plato.precio ?? 0).toFixed(2)}</span>
+                          <span className="font-bold text-amber-600">${((plato.precio ?? 0) * (plato.cantidad ?? 0)).toFixed(2)}</span>
                         </div>
                       </div>
                     ))}
@@ -318,13 +318,13 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                         {platosAgregados.map((plato, index) => (
                           <TableRow key={index}>
                             <TableCell className="font-medium">{plato.nombre}</TableCell>
-                            <TableCell>${plato.precio.toFixed(2)}</TableCell>
+                            <TableCell>${(plato.precio ?? 0).toFixed(2)}</TableCell>
                             <TableCell className="font-semibold text-amber-600">{plato.cantidad}</TableCell>
                             <TableCell className="text-sm italic text-gray-500">
                               {plato.notas || '-'}
                             </TableCell>
                             <TableCell className="text-right font-bold text-amber-600">
-                              ${(plato.precio * plato.cantidad).toFixed(2)}
+                              ${((plato.precio ?? 0) * (plato.cantidad ?? 0)).toFixed(2)}
                             </TableCell>
                             <TableCell className="text-right">
                               <Button
@@ -347,7 +347,7 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                   <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-4 border-2 border-amber-200">
                     <div className="flex justify-between items-center">
                       <span className="text-base sm:text-lg font-bold text-gray-900">TOTAL DE LA COMANDA:</span>
-                      <span className="text-xl sm:text-2xl font-bold text-amber-600">${total.toFixed(2)}</span>
+                      <span className="text-xl sm:text-2xl font-bold text-amber-600">${(total ?? 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </>

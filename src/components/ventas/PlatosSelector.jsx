@@ -57,7 +57,7 @@ export default function PlatosSelector({ platos, onAgregar }) {
                       {plato.categoria}
                     </Badge>
                     <p className="text-lg font-bold text-green-600 mt-2">
-                      ${plato.precio.toFixed(2)}
+                      ${(plato.precio ?? 0).toFixed(2)}
                     </p>
                   </div>
                   <Button

@@ -54,16 +54,29 @@ export default function EstadoCuentaDetalle() {
   });
 
   const metodosConfig = {
-    efectivo_usd: { label: "💵 Efectivo USD", icono: "💵" },
+    efectivo: { label: "💵 Efectivo Dólares", icono: "💵" },
+    bolivares: { label: "🇻🇪 Bolívares", icono: "💳" },
     binance_usd: { label: "📱 Binance", icono: "📱" },
     zinli_usd: { label: "📱 Zinli", icono: "📱" },
     paypal_usd: { label: "🌐 PayPal", icono: "🌐" },
     zelle_usd: { label: "🏦 Zelle", icono: "🏦" },
     nequi_cop: { label: "📱 Nequi", icono: "📱" },
-    tarjeta_bs: { label: "💳 Tarjeta Bs", icono: "💳" },
-    pago_movil_bs: { label: "📱 Pago Móvil", icono: "📱" },
     cuentas_por_cobrar: { label: "📋 Cuentas por Cobrar", icono: "📋" }
   };
+
+  // Qué métodos de la DB pertenecen a cada cuenta consolidada
+  const metodosDB = {
+    efectivo: ['efectivo_usd', 'efectivo_cop', 'efectivo'],
+    bolivares: ['tarjeta_bs', 'pago_movil_bs', 'bolivares'],
+    binance_usd: ['binance_usd'],
+    zinli_usd: ['zinli_usd'],
+    paypal_usd: ['paypal_usd'],
+    zelle_usd: ['zelle_usd'],
+    nequi_cop: ['nequi_cop'],
+    cuentas_por_cobrar: ['cuentas_por_cobrar']
+  };
+
+  const perteneceACuenta = (metodoPago) => (metodosDB[metodo] || []).includes(metodoPago);
 
   if (!metodo || !metodosConfig[metodo]) {
     return (
@@ -105,73 +118,51 @@ export default function EstadoCuentaDetalle() {
   // Construir movimientos
   const movimientos = [];
 
-  // Agregar entradas de ventas simples (excepto cuentas por cobrar)
+  // Entradas: Ventas simples
   ventasFiltradas.forEach(venta => {
-    if (venta.metodo_pago === metodo && metodo !== 'cuentas_por_cobrar') {
-      // USAR EL MONTO DE LA VENTA (ya incluye descuentos)
-      let monto = venta.total_venta;
+    if (perteneceACuenta(venta.metodo_pago) && metodo !== 'cuentas_por_cobrar') {
+      let monto = venta.total_venta; // USD por defecto
       let concepto = `Venta ${venta.id.substring(0, 8)}`;
 
-      // Buscar comanda asociada por fecha cercana (permite descuentos)
       const comandaAsociada = comandas.find(c => {
-        const fechaCercana = Math.abs(new Date(c.fecha_cierre || c.fecha_apertura) - new Date(venta.fecha_hora)) < 60000; // 1 minuto
-        // Permitir hasta 30% de diferencia por descuentos
+        const fechaCercana = Math.abs(new Date(c.fecha_cierre || c.fecha_apertura) - new Date(venta.fecha_hora)) < 60000;
         const montoCercano = c.total_comanda >= venta.total_venta && c.total_comanda - venta.total_venta <= c.total_comanda * 0.30;
         return fechaCercana && (montoCercano || Math.abs(c.total_comanda - venta.total_venta) < 0.01);
       });
 
-      // Para métodos VES, usar el monto en bolívares de la VENTA
-      if (metodo === 'tarjeta_bs' || metodo === 'pago_movil_bs') {
-        if (venta.total_ves > 0) {
-          monto = venta.total_ves;
-        } else {
-          monto = venta.total_venta * (venta.tasa_bs_aplicada || 50);
-        }
-        if (comandaAsociada) {
-          concepto = `${comandaAsociada.numero_comanda} - Mesa ${comandaAsociada.mesa_numero}`;
-        }
-      } else if (metodo === 'efectivo_cop' || metodo === 'nequi_cop') {
-        // Usar total_cop de la VENTA (ya ajustado por descuentos)
-        const valorCOP = venta.total_cop || 0;
-        const valorUSD = venta.total_venta || 0;
-
-        if (valorCOP > 0) {
-          monto = valorCOP;
-        } else if (valorUSD > 1000) {
-          monto = valorUSD;
-        } else {
-          monto = valorUSD * 4000;
-        }
-        if (comandaAsociada) {
-          concepto = `${comandaAsociada.numero_comanda} - Mesa ${comandaAsociada.mesa_numero}`;
-        }
-      } else {
-        // USD: usar total_venta (ya incluye descuento)
-        monto = venta.total_venta;
-        if (comandaAsociada) {
-          concepto = `${comandaAsociada.numero_comanda} - Mesa ${comandaAsociada.mesa_numero}`;
-        }
+      if (comandaAsociada) {
+        concepto = `${comandaAsociada.numero_comanda} - Mesa ${comandaAsociada.mesa_numero}`;
       }
+
+      // Para bolívares, mostrar en Bs
+      if (metodo === 'bolivares') {
+        monto = venta.total_ves > 0 ? venta.total_ves : venta.total_venta * (venta.tasa_bs_aplicada || 50);
+      }
+      // Para nequi, mostrar en COP
+      if (metodo === 'nequi_cop') {
+        const valorCOP = venta.total_cop || 0;
+        monto = valorCOP > 0 ? valorCOP : venta.total_venta * 4000;
+      }
+      // Para efectivo: todo en USD (total_venta ya está en USD)
 
       movimientos.push({
         fecha: venta.fecha_hora,
         tipo: 'ENTRADA',
-        concepto: concepto,
-        monto: monto,
+        concepto,
+        monto,
         referencia: venta.id
       });
     }
   });
 
-  // Agregar entradas de pagos mixtos (excluir cuentas por cobrar del detalle)
+  // Entradas: Pagos mixtos
   const ventasIds = ventasFiltradas.map(v => v.id);
   pagosMixtos.forEach(pago => {
-    if (ventasIds.includes(pago.venta_id) && pago.metodo_pago === metodo && metodo !== 'cuentas_por_cobrar') {
-      let monto = pago.monto_usd;
+    if (ventasIds.includes(pago.venta_id) && perteneceACuenta(pago.metodo_pago) && metodo !== 'cuentas_por_cobrar') {
+      let monto = pago.monto_usd || pago.monto || 0;
       let concepto = `Venta Mixta ${pago.venta_id.substring(0, 8)}`;
 
       const ventaOriginal = ventasFiltradas.find(v => v.id === pago.venta_id);
-      // Buscar comanda con tolerancia para descuentos
       const comandaAsociada = comandas.find(c => {
         if (!ventaOriginal) return false;
         const fechaCercana = Math.abs(new Date(c.fecha_cierre || c.fecha_apertura) - new Date(ventaOriginal.fecha_hora)) < 60000;
@@ -179,40 +170,33 @@ export default function EstadoCuentaDetalle() {
         return fechaCercana && (montoCercano || Math.abs(c.total_comanda - ventaOriginal.total_venta) < 0.01);
       });
 
-      // Para métodos VES, usar monto original en bolívares
-      if (metodo === 'tarjeta_bs' || metodo === 'pago_movil_bs') {
-        monto = pago.monto_original || (pago.monto_usd * 50);
-        if (comandaAsociada) {
-          concepto = `${comandaAsociada.numero_comanda} - Mesa ${comandaAsociada.mesa_numero} (Mixto)`;
-        }
-      } else if (metodo === 'efectivo_cop' || metodo === 'nequi_cop') {
-        monto = pago.monto_original || (pago.monto_usd * 4000);
-        if (comandaAsociada) {
-          concepto = `${comandaAsociada.numero_comanda} - Mesa ${comandaAsociada.mesa_numero} (Mixto)`;
-        }
-      } else {
-        if (comandaAsociada) {
-          concepto = `${comandaAsociada.numero_comanda} - Mesa ${comandaAsociada.mesa_numero} (Mixto)`;
-        }
+      if (comandaAsociada) {
+        concepto = `${comandaAsociada.numero_comanda} - Mesa ${comandaAsociada.mesa_numero} (Mixto)`;
+      }
+
+      if (metodo === 'bolivares') {
+        monto = pago.monto_original || (monto * 50);
+      } else if (metodo === 'nequi_cop') {
+        monto = pago.monto_original || (monto * 4000);
       }
 
       movimientos.push({
         fecha: ventaOriginal?.fecha_hora,
         tipo: 'ENTRADA',
-        concepto: concepto,
-        monto: monto,
+        concepto,
+        monto,
         referencia: pago.id
       });
     }
   });
 
-  // Agregar entradas de pagos de Cuentas por Cobrar
+  // Entradas: Pagos de Cuentas por Cobrar
   const pagosCxCFiltrados = pagosCuentasPorCobrar.filter(p => {
     try {
       const fechaPago = parseISO(p.fecha_pago);
       const inicio = startOfDay(parseISO(fechaInicio + 'T00:00:00'));
       const fin = endOfDay(parseISO(fechaFin + 'T23:59:59'));
-      return fechaPago >= inicio && fechaPago <= fin && p.metodo_pago === metodo;
+      return fechaPago >= inicio && fechaPago <= fin && perteneceACuenta(p.metodo_pago);
     } catch {
       return false;
     }
@@ -223,7 +207,7 @@ export default function EstadoCuentaDetalle() {
     const cuenta = cuentasPorCobrar.find(c => c.id === pago.cuenta_id);
     let concepto = `Pago CxC - ${cuenta?.cliente_nombre || 'Cliente'}`;
 
-    if (metodo === 'tarjeta_bs' || metodo === 'pago_movil_bs') {
+    if (metodo === 'bolivares') {
       monto = pago.monto_pagado * (pago.tasa_bs_aplicada || 50);
     } else if (metodo === 'nequi_cop') {
       monto = pago.monto_pagado * 4000;
@@ -232,30 +216,29 @@ export default function EstadoCuentaDetalle() {
     movimientos.push({
       fecha: pago.fecha_pago,
       tipo: 'ENTRADA',
-      concepto: concepto,
-      monto: monto,
+      concepto,
+      monto,
       referencia: pago.id
     });
   });
 
-  // Función para obtener la tasa del día
+  // Tasa del día para gastos
   const obtenerTasaDelDia = (fecha) => {
     try {
       const fechaStr = format(parseISO(fecha), 'yyyy-MM-dd');
       const tasaDelDia = tasasCambio.find(t => t.fecha === fechaStr);
-      return tasaDelDia?.tasa_bs_usd || 50; // fallback a 50 si no hay tasa
+      return tasaDelDia?.tasa_bs_usd || 50;
     } catch {
       return 50;
     }
   };
 
-  // Agregar salidas de gastos
+  // Salidas: Gastos
   gastosFiltrados.forEach(gasto => {
-    if (gasto.metodo_pago === metodo) {
+    if (perteneceACuenta(gasto.metodo_pago)) {
       let monto = gasto.monto;
 
-      // Para métodos VES, convertir usando la tasa del día del gasto
-      if (metodo === 'tarjeta_bs' || metodo === 'pago_movil_bs') {
+      if (metodo === 'bolivares') {
         const tasaDelDia = obtenerTasaDelDia(gasto.fecha_gasto);
         monto = gasto.monto * tasaDelDia;
       } else if (metodo === 'nequi_cop') {
@@ -266,16 +249,15 @@ export default function EstadoCuentaDetalle() {
         fecha: gasto.fecha_gasto,
         tipo: 'SALIDA',
         concepto: gasto.descripcion,
-        monto: monto,
+        monto,
         referencia: gasto.id
       });
     }
   });
 
-  // Ordenar por fecha
+  // Ordenar y calcular saldo acumulado
   movimientos.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-  // Calcular saldo acumulado
   let saldoAcumulado = 0;
   movimientos.forEach(mov => {
     if (mov.tipo === 'ENTRADA') {
@@ -286,14 +268,8 @@ export default function EstadoCuentaDetalle() {
     mov.saldo = saldoAcumulado;
   });
 
-  const totalEntradas = movimientos
-    .filter(m => m.tipo === 'ENTRADA')
-    .reduce((sum, m) => sum + m.monto, 0);
-
-  const totalSalidas = movimientos
-    .filter(m => m.tipo === 'SALIDA')
-    .reduce((sum, m) => sum + m.monto, 0);
-
+  const totalEntradas = movimientos.filter(m => m.tipo === 'ENTRADA').reduce((sum, m) => sum + m.monto, 0);
+  const totalSalidas = movimientos.filter(m => m.tipo === 'SALIDA').reduce((sum, m) => sum + m.monto, 0);
   const saldoFinal = totalEntradas - totalSalidas;
 
   const exportarExcel = () => {
@@ -332,9 +308,8 @@ export default function EstadoCuentaDetalle() {
 
   const isLoading = loadingVentas || loadingPagos || loadingGastos || loadingComandas || loadingTasas || loadingPagosCxC || loadingCxC;
 
-  // Determinar símbolo de moneda según método
-  const simboloMoneda = (metodo === 'tarjeta_bs' || metodo === 'pago_movil_bs') ? 'Bs' : 
-                        (metodo === 'nequi_cop') ? 'COP' : '$';
+  const simboloMoneda = metodo === 'bolivares' ? 'Bs' : 
+                        metodo === 'nequi_cop' ? 'COP' : '$';
 
   if (isLoading) {
     return (

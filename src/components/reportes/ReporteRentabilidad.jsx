@@ -54,13 +54,13 @@ export default function ReporteRentabilidad({ detalles, platos }) {
                       <Badge variant="outline">{plato.cantidadVendida}</Badge>
                     </TableCell>
                     <TableCell className="font-semibold text-green-600">
-                      ${plato.totalVentas.toFixed(2)}
+                      ${(plato.totalVentas ?? 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="font-semibold text-red-600">
-                      ${plato.totalCostos.toFixed(2)}
+                      ${(plato.totalCostos ?? 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="font-semibold text-blue-600">
-                      ${plato.ganancia.toFixed(2)}
+                      ${(plato.ganancia ?? 0).toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -72,7 +72,7 @@ export default function ReporteRentabilidad({ detalles, platos }) {
                         <span className={`font-semibold ${
                           plato.margen >= 50 ? 'text-green-600' : 'text-red-600'
                         }`}>
-                          {plato.margen.toFixed(1)}%
+                          {(plato.margen ?? 0).toFixed(1)}%
                         </span>
                       </div>
                     </TableCell>

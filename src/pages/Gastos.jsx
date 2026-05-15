@@ -91,8 +91,17 @@ export default function Gastos() {
     return fecha >= inicioMes && fecha <= finMes;
   });
 
-  const totalMes = gastosDelMes.reduce((sum, g) => sum + g.monto, 0);
-  const totalGeneral = gastos.reduce((sum, g) => sum + g.monto, 0);
+  const metodosBolivares = (metodo) => metodo && metodo.endsWith('_bs');
+  const metodosCOP = (metodo) => metodo && metodo.endsWith('_cop');
+  const metodosEfectivoUSD = (metodo) => metodo === 'efectivo_usd';
+  const metodosDigitalesUSD = (metodo) => metodo && !metodo.endsWith('_bs') && !metodo.endsWith('_cop') && metodo !== 'efectivo_usd' && !['cuentas_por_cobrar', 'mixto'].includes(metodo);
+
+  const mesEfectivoUSD = gastosDelMes.filter(g => metodosEfectivoUSD(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
+  const mesDigitalesUSD = gastosDelMes.filter(g => metodosDigitalesUSD(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
+  const mesBolivares = gastosDelMes.filter(g => metodosBolivares(g.metodo_pago)).reduce((sum, g) => sum + (g.monto_original || g.monto || 0), 0);
+  const mesCOP = gastosDelMes.filter(g => metodosCOP(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
+
+  const totalGeneralUSD = gastos.filter(g => !metodosBolivares(g.metodo_pago) && !metodosCOP(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
 
   return (
     <div className="w-full">
@@ -121,53 +130,39 @@ export default function Gastos() {
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-500 mb-1 truncate">Gastos de {format(today, "MMMM", { locale: es })}</p>
-                  <h3 className="text-2xl sm:text-3xl font-bold text-red-600 truncate">${totalMes.toFixed(2)}</h3>
-                  <p className="text-xs text-gray-500 mt-1">{gastosDelMes.length} gastos</p>
-                </div>
-                <div className="p-2 sm:p-3 rounded-xl bg-red-100 flex-shrink-0">
-                  <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Stats Cards - Desglose de Gastos del Mes */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Efectivo USD */}
+          <div className="rounded-2xl p-5 relative overflow-hidden shadow-lg" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(5,150,105,0.02))', border: '1px solid rgba(16,185,129,0.2)' }}>
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+            <p className="text-emerald-700 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> Efectivo USD</p>
+            <p className="text-3xl font-black mt-2 text-emerald-600">${mesEfectivoUSD.toFixed(2)}</p>
+            <p className="text-xs text-emerald-600/70 mt-2 font-medium">Gastos del mes en efectivo</p>
+          </div>
 
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-500 mb-1">Total Acumulado</p>
-                  <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">${totalGeneral.toFixed(2)}</h3>
-                  <p className="text-xs text-gray-500 mt-1 truncate">{gastos.length} gastos registrados</p>
-                </div>
-                <div className="p-2 sm:p-3 rounded-xl bg-gray-100 flex-shrink-0">
-                  <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Divisas Digitales */}
+          <div className="rounded-2xl p-5 relative overflow-hidden shadow-lg" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(79,70,229,0.02))', border: '1px solid rgba(99,102,241,0.2)' }}>
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+            <p className="text-indigo-700 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Divisas Digitales</p>
+            <p className="text-3xl font-black mt-2 text-indigo-600">${mesDigitalesUSD.toFixed(2)}</p>
+            <p className="text-xs text-indigo-600/70 mt-2 font-medium">Zelle, Binance, Zinli, PayPal</p>
+          </div>
 
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-500 mb-1 truncate">Promedio Mensual</p>
-                  <h3 className="text-2xl sm:text-3xl font-bold text-amber-600 truncate">
-                    ${gastos.length > 0 ? (totalGeneral / Math.max(1, new Set(gastos.map(g => format(new Date(g.fecha_gasto), "yyyy-MM"))).size)).toFixed(2) : "0.00"}
-                  </h3>
-                </div>
-                <div className="p-2 sm:p-3 rounded-xl bg-amber-100 flex-shrink-0">
-                  <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Bolívares */}
+          <div className="rounded-2xl p-5 relative overflow-hidden shadow-lg" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(217,119,6,0.02))', border: '1px solid rgba(245,158,11,0.2)' }}>
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+            <p className="text-amber-700 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> Bolívares (Bs)</p>
+            <p className="text-3xl font-black mt-2 text-amber-600">Bs {mesBolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+            <p className="text-xs text-amber-600/70 mt-2 font-medium">Pago Móvil, Transferencias</p>
+          </div>
+
+          {/* Total Acumulado General */}
+          <div className="rounded-2xl p-5 relative overflow-hidden shadow-lg" style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.1), rgba(220,38,38,0.02))', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(239,68,68,0.1) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+            <p className="text-red-700 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Total Acumulado (USD)</p>
+            <p className="text-3xl font-black mt-2 text-red-600">${totalGeneralUSD.toFixed(2)}</p>
+            <p className="text-xs text-red-600/70 mt-2 font-medium">Histórico general en USD</p>
+          </div>
         </div>
 
         {/* Resumen por Categoría */}

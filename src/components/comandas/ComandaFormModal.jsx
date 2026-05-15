@@ -186,7 +186,7 @@ export default function ComandaFormModal({ open, platos, onSubmit, onCancel, isL
                               >
                                 <Check className={cn("mr-2 h-4 w-4", platoSeleccionado === plato.id ? "opacity-100" : "opacity-0")} />
                                 {plato.nombre}
-                                {plato.tiene_piezas ? <span className="ml-2 text-xs text-amber-600">(Piezas)</span> : ` - $${plato.precio?.toFixed(2)}`}
+                                ${plato.tiene_piezas ? <span className="ml-2 text-xs text-amber-600">(Piezas)</span> : ` - ${(plato.precio ?? 0).toFixed(2)}`}
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -204,7 +204,7 @@ export default function ComandaFormModal({ open, platos, onSubmit, onCancel, isL
                         onClick={() => setVarianteSeleccionada("6")}
                         className={varianteSeleccionada === "6" ? "bg-amber-600" : ""}
                       >
-                        6 (${platos.find(p => p.id === platoSeleccionado)?.precio_6?.toFixed(2)})
+                        6 (${(platos.find(p => p.id === platoSeleccionado)?.precio_6 ?? 0).toFixed(2)})
                       </Button>
                       <Button
                         type="button"
@@ -213,7 +213,7 @@ export default function ComandaFormModal({ open, platos, onSubmit, onCancel, isL
                         onClick={() => setVarianteSeleccionada("12")}
                         className={varianteSeleccionada === "12" ? "bg-amber-600" : ""}
                       >
-                        12 (${platos.find(p => p.id === platoSeleccionado)?.precio_12?.toFixed(2)})
+                        12 (${(platos.find(p => p.id === platoSeleccionado)?.precio_12 ?? 0).toFixed(2)})
                       </Button>
                     </div>
                   )}
@@ -268,7 +268,7 @@ export default function ComandaFormModal({ open, platos, onSubmit, onCancel, isL
                       {platosAgregados.map((plato, index) => (
                         <TableRow key={index}>
                           <TableCell className="font-semibold">{plato.nombre}</TableCell>
-                          <TableCell className="text-right">${plato.precio.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">${(plato.precio ?? 0).toFixed(2)}</TableCell>
                           <TableCell className="text-right font-bold text-amber-600">{plato.cantidad}</TableCell>
                           <TableCell className="text-right font-bold">${(plato.precio * plato.cantidad).toFixed(2)}</TableCell>
                           <TableCell>

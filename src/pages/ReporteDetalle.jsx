@@ -59,10 +59,10 @@ export default function ReporteDetalle() {
 
   if (!metodo || !metodosConfig[metodo]) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-red-600">Método de pago no válido</p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+        <p className="text-red-400 text-lg mb-4">Método de pago no válido</p>
         <Link to={createPageUrl("ReportesMetodosPago")}>
-          <Button className="mt-4">Volver a Reportes</Button>
+          <Button className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700">Volver a Reportes</Button>
         </Link>
       </div>
     );
@@ -83,23 +83,25 @@ export default function ReporteDetalle() {
 
   // Obtener transacciones del método
   const transacciones = [];
+  const esBs = metodo.endsWith('_bs');
+  const formatMonto = (val) => esBs 
+    ? `Bs ${val.toLocaleString('es-VE', { minimumFractionDigits: 2 })}` 
+    : `${metodoDef.simbolo}${val.toFixed(2)}`;
 
   // Ventas simples
   ventasFiltradas.forEach(venta => {
     if (venta.metodo_pago === metodo) {
-      const montoOriginal = metodoDef.moneda === 'usd' ? venta.total_venta :
+      const montoNativo = esBs ? (venta.total_ves || 0) :
                            metodoDef.moneda === 'cop' ? (venta.total_cop || venta.total_venta * 4000) :
-                           (venta.total_ves || 0);
-      
-      console.log(`➕ Venta simple ${metodo}:`, venta.id, '$' + venta.total_venta);
+                           venta.total_venta;
       
       transacciones.push({
         id: venta.id,
         fecha: venta.fecha_hora,
         tipo: 'venta_simple',
         monto_usd: venta.total_venta,
-        monto_original: montoOriginal,
-        tasa: metodoDef.moneda === 'ves' ? (venta.tasa_bs_aplicada || 0) : (metodoDef.moneda === 'cop' ? 4000 : 1)
+        monto_nativo: montoNativo,
+        tasa: esBs ? (venta.tasa_bs_aplicada || 0) : (metodoDef.moneda === 'cop' ? 4000 : 1)
       });
     }
   });
@@ -108,28 +110,24 @@ export default function ReporteDetalle() {
   const ventasIds = ventasFiltradas.map(v => v.id);
   pagosMixtos.forEach(pago => {
     if (ventasIds.includes(pago.venta_id) && pago.metodo_pago === metodo) {
-      console.log(`➕ Pago mixto ${metodo}:`, pago.id, '$' + pago.monto_usd);
-      
       transacciones.push({
         id: pago.id,
         fecha: ventasFiltradas.find(v => v.id === pago.venta_id)?.fecha_hora,
         tipo: 'pago_mixto',
         monto_usd: pago.monto_usd,
-        monto_original: pago.monto_original,
+        monto_nativo: esBs ? (pago.monto_original || 0) : (pago.monto_original || pago.monto_usd),
         tasa: pago.tasa_cambio_aplicada || 1,
         venta_id: pago.venta_id
       });
     }
   });
 
-  console.log(`📊 Total transacciones para ${metodo}:`, transacciones.length);
-
   // Ordenar por fecha descendente
   transacciones.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
   const totalUSD = transacciones.reduce((sum, t) => sum + t.monto_usd, 0);
-  const totalOriginal = transacciones.reduce((sum, t) => sum + t.monto_original, 0);
-  const promedio = transacciones.length > 0 ? totalUSD / transacciones.length : 0;
+  const totalNativo = transacciones.reduce((sum, t) => sum + t.monto_nativo, 0);
+  const promedio = transacciones.length > 0 ? (esBs ? totalNativo / transacciones.length : totalUSD / transacciones.length) : 0;
 
   const exportarExcel = () => {
     const rows = [
@@ -170,139 +168,107 @@ export default function ReporteDetalle() {
   const isLoading = loadingVentas || loadingPagos;
 
   return (
-    <div className="p-4 md:p-8 min-h-screen">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+      <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
+        {/* Header Premium */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-2">
           <div className="flex items-center gap-3">
             <Link to={createPageUrl("ReportesMetodosPago")}>
-              <Button variant="outline" size="icon">
-                <ArrowLeft className="w-4 h-4" />
+              <Button variant="outline" size="icon" className="bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white rounded-xl">
+                <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
                 {metodoDef.label}
               </h1>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-slate-400 mt-1">
                 {format(new Date(fechaInicio), "dd MMM yyyy", { locale: es })} - {format(new Date(fechaFin), "dd MMM yyyy", { locale: es })}
               </p>
             </div>
           </div>
-          <Button onClick={exportarExcel} className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
+          <Button onClick={exportarExcel} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 w-full sm:w-auto">
             <FileSpreadsheet className="w-4 h-4 mr-2" />
-            Exportar Excel
+            Exportar CSV
           </Button>
         </div>
 
-        {/* Resumen */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Total USD</p>
-                  <h3 className="text-2xl font-bold text-green-600">
-                    ${totalUSD.toFixed(2)}
-                  </h3>
-                </div>
-                <DollarSign className="w-8 h-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
+        {/* Resumen General */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.05))', border: '1px solid rgba(16,185,129,0.2)' }}>
+            <p className="text-emerald-400/70 text-xs font-bold uppercase tracking-wider">Total USD</p>
+            <p className="text-3xl font-black mt-1 text-emerald-400">{esBs ? formatMonto(totalNativo) : `$${totalUSD.toFixed(2)}`}</p>
+            <DollarSign className="absolute top-4 right-4 w-12 h-12 text-emerald-500/20" />
+          </div>
 
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Total {metodoDef.simbolo}</p>
-                  <h3 className="text-2xl font-bold text-blue-600">
-                    {totalOriginal.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                  </h3>
-                </div>
-                <Calendar className="w-8 h-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(37,99,235,0.05))', border: '1px solid rgba(59,130,246,0.2)' }}>
+            <p className="text-blue-400/70 text-xs font-bold uppercase tracking-wider">Total {esBs ? 'Bs' : metodoDef.simbolo}</p>
+            <p className="text-3xl font-black mt-1 text-blue-400">{esBs ? `($ ${totalUSD.toFixed(2)} equiv.)` : totalNativo.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</p>
+            <Calendar className="absolute top-4 right-4 w-12 h-12 text-blue-500/20" />
+          </div>
 
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Transacciones</p>
-                  <h3 className="text-2xl font-bold text-purple-600">
-                    {transacciones.length}
-                  </h3>
-                </div>
-                <TrendingUp className="w-8 h-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(168,85,247,0.15), rgba(147,51,234,0.05))', border: '1px solid rgba(168,85,247,0.2)' }}>
+            <p className="text-purple-400/70 text-xs font-bold uppercase tracking-wider">Transacciones</p>
+            <p className="text-3xl font-black mt-1 text-purple-400">{transacciones.length}</p>
+            <TrendingUp className="absolute top-4 right-4 w-12 h-12 text-purple-500/20" />
+          </div>
 
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Promedio</p>
-                  <h3 className="text-2xl font-bold text-amber-600">
-                    ${promedio.toFixed(2)}
-                  </h3>
-                </div>
-                <DollarSign className="w-8 h-8 text-amber-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.05))', border: '1px solid rgba(245,158,11,0.2)' }}>
+            <p className="text-amber-400/70 text-xs font-bold uppercase tracking-wider">Promedio</p>
+            <p className="text-3xl font-black mt-1 text-amber-400">{formatMonto(promedio)}</p>
+            <DollarSign className="absolute top-4 right-4 w-12 h-12 text-amber-500/20" />
+          </div>
         </div>
 
         {/* Tabla de Transacciones */}
-        <Card className="shadow-lg border-none">
-          <CardHeader>
-            <CardTitle className="text-lg">Detalle de Transacciones</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="p-4 sm:p-6 border-b border-white/5">
+            <h3 className="text-lg font-bold text-white">Detalle de Transacciones</h3>
+          </div>
+          <div className="p-0">
             {isLoading ? (
-              <Skeleton className="h-64 w-full" />
+              <div className="p-6"><Skeleton className="h-64 w-full bg-white/5" /></div>
             ) : transacciones.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead>Fecha y Hora</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead className="text-right">Monto USD</TableHead>
-                      <TableHead className="text-right">Monto {metodoDef.simbolo}</TableHead>
-                      <TableHead className="text-right">Tasa</TableHead>
+                    <TableRow className="border-white/10 hover:bg-transparent">
+                      <TableHead className="text-slate-400">Fecha y Hora</TableHead>
+                      <TableHead className="text-slate-400">Tipo</TableHead>
+                      <TableHead className="text-right text-slate-400">Monto USD</TableHead>
+                      <TableHead className="text-right text-slate-400">Monto {metodoDef.simbolo}</TableHead>
+                      <TableHead className="text-right text-slate-400">Tasa</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {transacciones.map((t, index) => (
-                      <TableRow key={`${t.id}-${index}`} className="hover:bg-gray-50">
-                        <TableCell className="text-sm">
+                      <TableRow key={`${t.id}-${index}`} className="border-white/5 hover:bg-white/5 transition-colors">
+                        <TableCell className="text-sm text-slate-300">
                           {format(parseISO(t.fecha), "dd/MM/yyyy HH:mm", { locale: es })}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={t.tipo === 'venta_simple' ? 'default' : 'secondary'}>
+                          <Badge className={t.tipo === 'venta_simple' ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border-0' : 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border-0'}>
                             {t.tipo === 'venta_simple' ? '💰 Venta Completa' : '🔄 Pago Mixto'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-bold text-green-600">
-                          ${t.monto_usd.toFixed(2)}
+                        <TableCell className="text-right font-bold text-emerald-400">
+                          {formatMonto(esBs ? t.monto_nativo : t.monto_usd)}
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-blue-600">
-                          {metodoDef.simbolo} {t.monto_original.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                        <TableCell className="text-right font-semibold text-blue-400">
+                          {esBs ? `$${t.monto_usd.toFixed(2)}` : `${metodoDef.simbolo} ${t.monto_nativo.toLocaleString('es-ES', { minimumFractionDigits: 2 })}`}
                         </TableCell>
-                        <TableCell className="text-right text-gray-600 text-sm">
+                        <TableCell className="text-right text-slate-500 text-sm">
                           {t.tasa.toFixed(2)}
                         </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="bg-amber-50 font-bold">
-                      <TableCell colSpan={2}>TOTAL</TableCell>
-                      <TableCell className="text-right text-green-700 text-lg">
-                        ${totalUSD.toFixed(2)}
+                    <TableRow className="border-t-2 border-white/10 bg-white/5 font-bold hover:bg-white/5">
+                      <TableCell colSpan={2} className="text-white">TOTAL</TableCell>
+                      <TableCell className="text-right text-emerald-400 text-lg">
+                        {formatMonto(esBs ? totalNativo : totalUSD)}
                       </TableCell>
-                      <TableCell className="text-right text-blue-700 text-lg">
-                        {metodoDef.simbolo} {totalOriginal.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                      <TableCell className="text-right text-blue-400 text-lg">
+                        {esBs ? `$${totalUSD.toFixed(2)}` : `${metodoDef.simbolo} ${totalNativo.toLocaleString('es-ES', { minimumFractionDigits: 2 })}`}
                       </TableCell>
                       <TableCell></TableCell>
                     </TableRow>
@@ -311,12 +277,12 @@ export default function ReporteDetalle() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No hay transacciones en este período para {metodoDef.label}</p>
+                <Calendar className="w-16 h-16 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-400">No hay transacciones en este período para {metodoDef.label}</p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

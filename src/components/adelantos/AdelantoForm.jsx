@@ -13,21 +13,38 @@ export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }
   const handleSubmit = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    
+    const montoForm = parseFloat(formData.get("monto") || "0");
+    const tasaBs = formData.get("tasa_bs") ? parseFloat(formData.get("tasa_bs")) : null;
+
+    let montoUSD = montoForm;
+    let montoOriginal = montoForm;
+    let monedaOriginal = 'USD';
+
+    if (esMetodoBs) {
+      monedaOriginal = 'BS';
+      if (tasaBs && tasaBs > 0) {
+        montoUSD = montoForm / tasaBs;
+      }
+    } else if (metodoPago.includes('cop')) {
+      monedaOriginal = 'COP';
+    }
+
     const data = {
       empleado_id: formData.get("empleado_id"),
       empleado_nombre: formData.get("empleado_nombre"),
-      monto: parseFloat(formData.get("monto")),
+      monto: montoUSD,
+      monto_original: montoOriginal,
+      moneda_original: monedaOriginal,
+      tasa_cambio: tasaBs,
       fecha_adelanto: formData.get("fecha_adelanto"),
       metodo_pago: metodoPago,
       notas: formData.get("notas") || ""
     };
     
     // Si es método Bs, agregar tasa a las notas
-    if (esMetodoBs) {
-      const tasaBs = formData.get("tasa_bs");
-      if (tasaBs) {
-        data.notas = `Tasa Bs: ${tasaBs}${data.notas ? ' | ' + data.notas : ''}`;
-      }
+    if (esMetodoBs && tasaBs) {
+      data.notas = `Tasa Bs: ${tasaBs}${data.notas ? ' | ' + data.notas : ''}`;
     }
     
     onSubmit(data);
@@ -67,6 +84,7 @@ export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }
             <SelectItem value="pago_movil_bs">Pago Móvil</SelectItem>
             <SelectItem value="binance_usd">Binance</SelectItem>
             <SelectItem value="zinli_usd">Zinli</SelectItem>
+            <SelectItem value="efectivo_cop">Efectivo COP</SelectItem>
             <SelectItem value="nequi_cop">Nequi</SelectItem>
             <SelectItem value="paypal_usd">PayPal</SelectItem>
             <SelectItem value="zelle_usd">Zelle</SelectItem>
@@ -81,7 +99,7 @@ export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }
             name="monto"
             type="number"
             step="0.01"
-            defaultValue={adelanto?.monto}
+            defaultValue={adelanto?.monto_original || adelanto?.monto}
             required
             placeholder="0.00"
             className={esMetodoBs ? 'bg-yellow-50 border-yellow-300' : ''}
@@ -105,6 +123,7 @@ export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }
             name="tasa_bs"
             type="number"
             step="0.01"
+            defaultValue={adelanto?.tasa_cambio}
             placeholder="Ej: 55.50"
             className="bg-yellow-50 border-yellow-300"
           />

@@ -23,6 +23,7 @@ const metodosConfig = {
   zinli_usd: { grupo: "USD" },
   paypal_usd: { grupo: "USD" },
   zelle_usd: { grupo: "USD" },
+  efectivo_cop: { grupo: "COP" },
   nequi_cop: { grupo: "COP" },
   tarjeta_bs: { grupo: "VES" },
   pago_movil_bs: { grupo: "VES" }
@@ -86,7 +87,8 @@ export default function GastosList({ gastos, onEdit, onDelete, isLoading }) {
                   </Badge>
                 </TableCell>
                 <TableCell className="font-bold text-red-600">
-                  ${gasto.monto.toFixed(2)}
+                  {gasto.metodo_pago?.endsWith('_bs') ? 'Bs ' : gasto.metodo_pago?.endsWith('_cop') ? '₡ ' : '$'}
+                  {(gasto.monto_original || gasto.monto || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">{gasto.metodo_pago}</Badge>

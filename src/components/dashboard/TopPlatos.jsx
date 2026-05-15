@@ -48,7 +48,7 @@ export default function TopPlatos({ detallesVentas, platos }) {
                   </div>
                 </div>
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  ${plato.total.toFixed(2)}
+                  ${(plato.total ?? 0).toFixed(2)}
                 </Badge>
               </div>
             ))

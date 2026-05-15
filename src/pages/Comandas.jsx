@@ -69,22 +69,14 @@ export default function Comandas() {
         fecha_apertura: new Date().toISOString(),
         estado: 'abierta',
         total_comanda: total,
-        notas: comandaData.notas || ''
+        notas: comandaData.notas || '',
+        detalles: platosSeleccionados.map(p => ({
+          plato_id: p.id,
+          plato_nombre: p.nombre,
+          cantidad: p.cantidad,
+          precio_unitario: p.precio
+        }))
       });
-
-      for (const plato of platosSeleccionados) {
-        await base44.entities.DetalleComanda.create({
-          comanda_id: comanda.id,
-          plato_id: plato.id,
-          plato_nombre: plato.nombre,
-          cantidad: plato.cantidad,
-          precio_unitario: plato.precio,
-          subtotal: plato.precio * plato.cantidad,
-          estado_plato: 'pendiente',
-          notas_plato: plato.notas || '',
-          variante: plato.variante || null
-        });
-      }
 
       return comanda;
     },
@@ -102,23 +94,31 @@ export default function Comandas() {
   // Mutation para agregar platos a comanda existente
   const agregarPlatosMutation = useMutation({
     mutationFn: async ({ comandaId, platosNuevos, totalActual }) => {
-      let nuevoTotal = totalActual;
+      // Usar endpoint dedicado que notifica a la cocina en tiempo real
+      const result = await fetch(`/api/comandas/${comandaId}/detalles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
+        },
+        body: JSON.stringify({
+          platos: platosNuevos.map(p => ({
+            plato_id: p.id,
+            plato_nombre: p.nombre,
+            cantidad: p.cantidad,
+            precio_unitario: p.precio,
+            notas_plato: p.notas || '',
+            variante: p.variante || null
+          }))
+        })
+      });
+      if (!result.ok) throw new Error('Error agregando platos');
 
+      // Actualizar el total de la comanda
+      let nuevoTotal = totalActual;
       for (const plato of platosNuevos) {
-        await base44.entities.DetalleComanda.create({
-          comanda_id: comandaId,
-          plato_id: plato.id,
-          plato_nombre: plato.nombre,
-          cantidad: plato.cantidad,
-          precio_unitario: plato.precio,
-          subtotal: plato.precio * plato.cantidad,
-          estado_plato: 'pendiente',
-          notas_plato: plato.notas || '',
-          variante: plato.variante || null
-        });
         nuevoTotal += plato.precio * plato.cantidad;
       }
-
       await base44.entities.Comanda.update(comandaId, {
         total_comanda: nuevoTotal
       });
@@ -144,148 +144,32 @@ export default function Comandas() {
 
   // Mutation para cerrar comanda y procesar pago
   const cerrarComandaMutation = useMutation({
-    mutationFn: async ({ comandaId, metodoPago, tasaBs, pagosMixtos, datosCuenta, descuentoPorcentaje = 0, descuentoMonto = 0 }) => {
-      console.log("🔄 Iniciando proceso de pago...");
-
+    mutationFn: async ({ comandaId, metodoPago, tasaBs, pagosMixtos, datosCuenta, descuentoMonto = 0 }) => {
       const comanda = comandas.find(c => c.id === comandaId);
-      const detalles = detallesComandas.filter(d => d.comanda_id === comandaId);
-
-      // Obtener tasas desde localStorage
+      
+      // Obtener tasas desde localStorage o valores por defecto
       const tasaCOPActual = parseFloat(localStorage.getItem('tasa_cop_actual') || '4000');
       const tasaUSDFinal = parseFloat(localStorage.getItem('tasa_usd_final')) || tasaBs;
 
-      // Aplicar descuento al total
       const subtotalUSD = comanda.total_comanda;
       const totalUSD = subtotalUSD - descuentoMonto;
-      const totalCOP = totalUSD * tasaCOPActual; // Usar tasa COP configurable
-      const totalVES = totalUSD * tasaUSDFinal; // Usar tasa USD configurable con +16%
-      const totalVESConIVA = totalVES * 1.16;
+      const totalCOP = totalUSD * tasaCOPActual;
+      const totalVES = totalUSD * tasaUSDFinal;
 
-      if (descuentoPorcentaje > 0) {
-        console.log(`🎁 Descuento aplicado: ${descuentoPorcentaje}% (-$${descuentoMonto.toFixed(2)})`);
-        console.log(`💰 Total original: $${subtotalUSD.toFixed(2)} → Total con descuento: $${totalUSD.toFixed(2)}`);
-      }
-
-      if (!comanda) {
-        throw new Error("Comanda no encontrada");
-      }
-
-      if (detalles.length === 0) {
-        throw new Error("La comanda no tiene platos");
-      }
-
-      console.log("✅ Comanda encontrada:", comanda.numero_comanda);
-      console.log("✅ Detalles:", detalles.length, "platos");
-
-      // 1. Crear venta PRIMERO (con monto real cobrado)
-      console.log("💰 Creando venta...");
-      
-      // Detectar si el método de pago es en bolívares
-      const esMetodoBolivares = metodoPago && metodoPago.endsWith('_bs');
-      const montoOriginal = esMetodoBolivares ? totalVES : totalUSD;
-      
-      const venta = await base44.entities.Venta.create({
-        fecha_hora: new Date().toISOString(),
-        total_venta: totalUSD, // Siempre en USD para cálculos
-        metodo_pago: metodoPago,
-        costo_total: 0,
-        ganancia: 0,
-        total_cop: totalCOP,
-        total_ves: totalVES,
-        tasa_bs_aplicada: tasaBs,
-        monto_original: montoOriginal, // Monto en la moneda original del pago
-        moneda_original: esMetodoBolivares ? 'VES' : 'USD'
+      // Llamar al endpoint unificado del servidor
+      const result = await base44.custom.pagarComanda(comandaId, {
+        metodoPago,
+        tasaBs: tasaUSDFinal,
+        pagosMixtos,
+        descuentoMonto,
+        totalUSD,
+        totalVES,
+        totalCOP
       });
-      console.log("✅ Venta creada con ID:", venta.id, "| Monto: $", totalUSD.toFixed(2), esMetodoBolivares ? `(Bs ${totalVES.toFixed(2)})` : '');
-
-      // 1.5. Si es cuenta por cobrar, crear registro (con monto real)
-      if (metodoPago === "cuentas_por_cobrar" && datosCuenta) {
-        console.log("📋 Creando cuenta por cobrar...");
-        await base44.entities.CuentaPorCobrar.create({
-          cliente_nombre: datosCuenta.cliente_nombre,
-          cliente_telefono: datosCuenta.cliente_telefono || "",
-          monto_total: totalUSD, // Total con descuento aplicado
-          monto_pendiente: totalUSD, // Total con descuento aplicado
-          comanda_id: comanda.id,
-          comanda_numero: comanda.numero_comanda,
-          fecha_creacion: new Date().toISOString(),
-          fecha_vencimiento: datosCuenta.fecha_vencimiento || null,
-          estado: "pendiente",
-          notas: datosCuenta.notas || "",
-          venta_id: venta.id
-        });
-        console.log("✅ Cuenta por cobrar creada con monto:", totalUSD.toFixed(2));
-      }
-
-      // 1.6. Si es pago mixto, crear detalles
-      if (metodoPago === "mixto" && pagosMixtos) {
-        console.log("💳 Registrando pagos mixtos...");
-        for (const pago of pagosMixtos) {
-          await base44.entities.PagoMixto.create({
-            venta_id: venta.id,
-            ...pago
-          });
-        }
-        console.log("✅ Pagos mixtos registrados");
-      }
-
-      // 2. Crear detalles de venta
-      console.log("📋 Creando detalles de venta...");
-      for (const detalle of detalles) {
-        await base44.entities.DetalleVenta.create({
-          venta_id: venta.id,
-          plato_id: detalle.plato_id,
-          plato_nombre: detalle.plato_nombre,
-          cantidad: detalle.cantidad,
-          precio_unitario: detalle.precio_unitario,
-          subtotal: detalle.subtotal,
-          costo_unitario: 0,
-          variante: detalle.variante || null
-        });
-      }
-      console.log("✅ Detalles de venta creados");
-
-      // 3. 🔥 ACTUALIZAR INVENTARIO CON EXPLOSIÓN DE MATERIALES
-      console.log("📦 Actualizando inventario con EXPLOSIÓN DE MATERIALES...");
-      console.log("═══════════════════════════════════════════════════");
-      
-      let ingredientesAfectados = 0;
-
-      for (const detalle of detalles) {
-        console.log(`\n🍽️  PLATO: ${detalle.plato_nombre} x ${detalle.cantidad}`);
-        console.log("─────────────────────────────────────────────────");
-        
-        try {
-          const resultado = await descontarStock(detalle.plato_id, detalle.cantidad);
-          ingredientesAfectados += resultado.ingredientesAfectados;
-          console.log(`✅ Explosión completada: ${resultado.ingredientesAfectados} ingredientes base afectados`);
-        } catch (error) {
-          console.error(`❌ Error en explosión de ${detalle.plato_nombre}:`, error);
-          throw new Error(`Error descontando stock de ${detalle.plato_nombre}: ${error.message}`);
-        }
-      }
-
-      console.log("\n═══════════════════════════════════════════════════");
-      console.log(`✅ INVENTARIO ACTUALIZADO: ${ingredientesAfectados} ingredientes base procesados`);
-      console.log("═══════════════════════════════════════════════════\n");
-
-      // 4. Cerrar comanda AL FINAL con conversiones
-      console.log("🔒 Cerrando comanda...");
-      await base44.entities.Comanda.update(comandaId, {
-        estado: 'pagada',
-        fecha_cierre: new Date().toISOString(),
-        total_cop: totalCOP,
-        total_ves: totalVES,
-        total_ves_con_iva: totalVESConIVA,
-        tasa_bs_aplicada: tasaBs
-      });
-      console.log("✅ Comanda cerrada");
 
       return { 
-        venta, 
-        ingredientesActualizados: ingredientesAfectados, 
-        alertasCreadas: 0,
-        total: totalUSD, // Total con descuento aplicado
+        ...result,
+        total: totalUSD,
         descuento: descuentoMonto
       };
     },

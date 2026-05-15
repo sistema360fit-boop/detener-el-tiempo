@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,7 +45,10 @@ export default function ModalNuevoIngrediente({ open, onConfirm, onCancel, isLoa
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
-      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto border-none shadow-2xl">
+      <DialogContent 
+        className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto border-none shadow-2xl"
+        aria-describedby="nuevo-ingrediente-desc"
+      >
         <DialogHeader className="bg-gradient-to-r from-emerald-600 to-teal-700 -m-6 mb-4 p-6 rounded-t-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -54,7 +57,9 @@ export default function ModalNuevoIngrediente({ open, onConfirm, onCancel, isLoa
               </div>
               <div>
                 <DialogTitle className="text-2xl font-bold text-white">Nuevo Ingrediente</DialogTitle>
-                <p className="text-emerald-100 text-sm mt-1">Agregar insumo al inventario</p>
+                <DialogDescription className="text-emerald-100 text-sm mt-1">
+                  Agregar insumo al inventario
+                </DialogDescription>
               </div>
             </div>
             <Badge className="bg-white/20 text-white border-none">
@@ -106,6 +111,20 @@ export default function ModalNuevoIngrediente({ open, onConfirm, onCancel, isLoa
                 onChange={(e) => setFormData({ ...formData, costo_por_unidad: e.target.value })}
                 placeholder="0.00"
                 className="h-11 rounded-xl text-right font-bold"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase text-gray-400 tracking-widest">Stock Disponible</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.cantidad_disponible}
+                onChange={(e) => setFormData({ ...formData, cantidad_disponible: e.target.value })}
+                required
+                placeholder="0"
+                className="h-11 rounded-xl"
               />
             </div>
 

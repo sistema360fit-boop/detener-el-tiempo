@@ -59,22 +59,43 @@ export default function Acceso() {
       const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user, password: pass }),
+        body: JSON.stringify({ usuario: user, password: pass }),
       });
-      const data = await res.json();
+      
+      // Intentar parsear la respuesta como JSON
+      let data = null;
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const text = await res.text();
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = { error: text };
+          }
+        }
+      }
       
       if (!res.ok) {
-        toast.error(data.error || "Credenciales incorrectas");
+        toast.error(data?.error || `Error ${res.status}: Credenciales incorrectas`);
         setLoading(false);
         return;
       }
 
-      localStorage.setItem(LS_KEY_SESSION, JSON.stringify(data));
-      toast.success(`Bienvenido/a ${data.nombre}`);
-      redirectByRole(navigate, data.rol);
+      if (!data) {
+        toast.error("Error: Respuesta vacía del servidor");
+        setLoading(false);
+        return;
+      }
+
+      // Guardar JWT token y datos de usuario
+      localStorage.setItem('jwt_token', data.token);
+      localStorage.setItem(LS_KEY_SESSION, JSON.stringify(data.user));
+      toast.success(`Bienvenido/a ${data.user.nombre}`);
+      redirectByRole(navigate, data.user.rol);
     } catch (err) {
       console.error("Login error:", err);
-      toast.error("Error de conexión");
+      toast.error("Error de conexión: " + err.message);
       setLoading(false);
     }
   };

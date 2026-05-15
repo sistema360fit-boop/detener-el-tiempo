@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CreditCard, Banknote, Smartphone, X, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +25,9 @@ export default function PagoModal({ total, onConfirmar, onCancelar, isLoading })
           <DialogTitle className="text-2xl font-bold text-center">
             Confirmar Venta
           </DialogTitle>
+          <DialogDescription className="text-center">
+            Seleccione el método de pago para completar la transacción
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">

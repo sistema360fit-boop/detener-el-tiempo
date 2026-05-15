@@ -49,6 +49,11 @@ export default function ReportesEntradaSalida() {
     },
   });
 
+  const { data: adelantos = [], isLoading: loadingAdelantos } = useQuery({
+    queryKey: ['adelantos'],
+    queryFn: () => base44.entities.Adelanto.list('-created_date', 1000),
+  });
+
   const metodosConfig = {
     efectivo_usd: { label: "💵 Efectivo USD", moneda: "usd", simbolo: "$" },
     binance_usd: { label: "📱 Binance", moneda: "usd", simbolo: "$" },
@@ -72,9 +77,9 @@ export default function ReportesEntradaSalida() {
     }
   });
 
-  const gastosFiltrados = gastos.filter(g => {
+  const gastosNormales = gastos.filter(g => {
     try {
-      const fechaGasto = parseISO(g.fecha_gasto);
+      const fechaGasto = parseISO(g.fecha_gasto || g.fecha);
       const inicio = startOfDay(new Date(fechaInicio));
       const fin = endOfDay(new Date(fechaFin));
       return fechaGasto >= inicio && fechaGasto <= fin && g.afecta_caja !== false;
@@ -82,6 +87,29 @@ export default function ReportesEntradaSalida() {
       return false;
     }
   });
+
+  const adelantosFiltrados = adelantos.filter(a => {
+    try {
+      const fechaA = parseISO(a.fecha_adelanto || a.fecha || a.createdAt);
+      const inicio = startOfDay(new Date(fechaInicio));
+      const fin = endOfDay(new Date(fechaFin));
+      return fechaA >= inicio && fechaA <= fin;
+    } catch {
+      return false;
+    }
+  }).map(a => ({
+    id: a.id,
+    categoria: 'Adelanto a Personal',
+    descripcion: `Adelanto: ${a.empleado || a.empleadoId || 'Empleado'}${a.descripcion ? ' - ' + a.descripcion : ''}`,
+    monto: a.monto || 0,
+    monto_original: a.monto_original || 0,
+    moneda_original: a.moneda_original,
+    metodo_pago: a.metodo_pago,
+    fecha_gasto: a.fecha_adelanto || a.fecha || a.createdAt,
+    afecta_caja: true
+  }));
+
+  const gastosFiltrados = [...gastosNormales, ...adelantosFiltrados];
 
   // Calcular entradas y salidas por método
   const calcularMovimientos = () => {
@@ -100,7 +128,8 @@ export default function ReportesEntradaSalida() {
     // ENTRADAS: Ventas simples
     ventasFiltradas.forEach(venta => {
       if (venta.metodo_pago !== 'mixto' && movimientos[venta.metodo_pago]) {
-        movimientos[venta.metodo_pago].entradas += venta.total_venta;
+        const esBs = venta.metodo_pago.endsWith('_bs');
+        movimientos[venta.metodo_pago].entradas += esBs ? (venta.total_ves || 0) : venta.total_venta;
         movimientos[venta.metodo_pago].cantidad_entradas += 1;
       }
     });
@@ -109,7 +138,8 @@ export default function ReportesEntradaSalida() {
     const ventasIds = ventasFiltradas.map(v => v.id);
     pagosMixtos.forEach(pago => {
       if (ventasIds.includes(pago.venta_id) && movimientos[pago.metodo_pago]) {
-        movimientos[pago.metodo_pago].entradas += pago.monto_usd;
+        const esBs = pago.metodo_pago.endsWith('_bs');
+        movimientos[pago.metodo_pago].entradas += esBs ? (pago.monto_original || 0) : (pago.monto_usd || 0);
         movimientos[pago.metodo_pago].cantidad_entradas += 1;
       }
     });
@@ -117,7 +147,8 @@ export default function ReportesEntradaSalida() {
     // SALIDAS: Gastos
     gastosFiltrados.forEach(gasto => {
       if (movimientos[gasto.metodo_pago]) {
-        movimientos[gasto.metodo_pago].salidas += gasto.monto;
+        const esBs = gasto.metodo_pago.endsWith('_bs');
+        movimientos[gasto.metodo_pago].salidas += esBs ? (gasto.monto_original || gasto.monto || 0) : (gasto.monto || 0);
         movimientos[gasto.metodo_pago].cantidad_salidas += 1;
       }
     });
@@ -127,25 +158,35 @@ export default function ReportesEntradaSalida() {
 
   const movimientos = calcularMovimientos();
 
-  // Calcular totales generales
-  let totalEntradasGeneral = 0;
-  let totalSalidasGeneral = 0;
+  // Calcular totales generales separados por moneda
+  let totalEntradasUSD = 0;
+  let totalSalidasUSD = 0;
+  let totalEntradasBs = 0;
+  let totalSalidasBs = 0;
   const reportes = Object.entries(metodosConfig).map(([key, config]) => {
     const mov = movimientos[key];
     const saldo = mov.entradas - mov.salidas;
-    totalEntradasGeneral += mov.entradas;
-    totalSalidasGeneral += mov.salidas;
+    const esBs = key.endsWith('_bs');
+    if (esBs) {
+      totalEntradasBs += mov.entradas;
+      totalSalidasBs += mov.salidas;
+    } else {
+      totalEntradasUSD += mov.entradas;
+      totalSalidasUSD += mov.salidas;
+    }
     
     return {
       metodo: key,
       ...config,
       ...mov,
       saldo,
+      esBs,
       cantidad_movimientos: mov.cantidad_entradas + mov.cantidad_salidas
     };
   }).filter(r => r.cantidad_movimientos > 0);
 
-  const saldoNetoGeneral = totalEntradasGeneral - totalSalidasGeneral;
+  const saldoNetoUSD = totalEntradasUSD - totalSalidasUSD;
+  const saldoNetoBs = totalEntradasBs - totalSalidasBs;
 
   const exportarExcel = () => {
     const rows = [
@@ -180,171 +221,145 @@ export default function ReportesEntradaSalida() {
     toast.success("Reporte exportado exitosamente");
   };
 
-  const isLoading = loadingVentas || loadingPagos || loadingGastos;
+  const isLoading = loadingVentas || loadingPagos || loadingGastos || loadingAdelantos;
 
   if (isLoading) {
     return (
-      <div className="p-4 md:p-8 min-h-screen">
-        <div className="max-w-6xl mx-auto">
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-12 text-center">
-              <p className="text-gray-500">Cargando reportes...</p>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+        <p className="text-slate-400">Cargando reportes...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-8 min-h-screen">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3">
-            <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 flex-shrink-0" />
-            <span className="leading-tight">Reportes de Entrada/Salida</span>
-          </h1>
-          <p className="text-sm sm:text-base text-gray-500 mt-1">
-            Flujo de caja por método de pago
-          </p>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+      <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
+        {/* Header Premium */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 py-2">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+              <div className="p-2 rounded-xl" style={{ background: 'linear-gradient(135deg, #8b5cf6, #a855f7)' }}>
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+              Reportes de Entrada/Salida
+            </h1>
+            <p className="text-slate-400 mt-1 text-sm">Flujo de caja por método de pago</p>
+          </div>
+          <Button onClick={exportarExcel} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 w-full sm:w-auto">
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Exportar CSV
+          </Button>
         </div>
 
         {/* Filtros */}
-        <Card className="shadow-lg border-none">
-          <CardContent className="p-4 sm:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-              <div className="space-y-2">
-                <Label>Fecha Inicio</Label>
-                <Input
-                  type="date"
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Fecha Fin</Label>
-                <Input
-                  type="date"
-                  value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                />
-              </div>
-              <Button onClick={exportarExcel} variant="outline" className="w-full">
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Exportar Excel
-              </Button>
+        <div className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+            <div className="space-y-1.5">
+              <Label className="text-slate-400 text-xs">Fecha Inicio</Label>
+              <Input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="bg-white/10 border-white/10 text-white" />
             </div>
-          </CardContent>
-        </Card>
+            <div className="space-y-1.5">
+              <Label className="text-slate-400 text-xs">Fecha Fin</Label>
+              <Input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} className="bg-white/10 border-white/10 text-white" />
+            </div>
+          </div>
+        </div>
 
         {/* Resumen General */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="shadow-lg border-none bg-gradient-to-br from-green-50 to-emerald-50">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">💰 Total Entradas</p>
-                  <h3 className="text-2xl font-bold text-green-600">
-                    ${totalEntradasGeneral.toFixed(2)}
-                  </h3>
-                </div>
-                <ArrowUpCircle className="w-8 h-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.05))', border: '1px solid rgba(16,185,129,0.2)' }}>
+            <p className="text-emerald-400/70 text-xs font-bold uppercase tracking-wider">💰 Entradas USD</p>
+            <p className="text-3xl font-black mt-1 text-emerald-400">${totalEntradasUSD.toFixed(2)}</p>
+          </div>
 
-          <Card className="shadow-lg border-none bg-gradient-to-br from-red-50 to-rose-50">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">💸 Total Salidas</p>
-                  <h3 className="text-2xl font-bold text-red-600">
-                    ${totalSalidasGeneral.toFixed(2)}
-                  </h3>
-                </div>
-                <ArrowDownCircle className="w-8 h-8 text-red-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.05))', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <p className="text-red-400/70 text-xs font-bold uppercase tracking-wider">💸 Salidas USD</p>
+            <p className="text-3xl font-black mt-1 text-red-400">${totalSalidasUSD.toFixed(2)}</p>
+          </div>
 
-          <Card className="shadow-lg border-none bg-gradient-to-br from-purple-50 to-indigo-50">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">✅ Saldo Neto</p>
-                  <h3 className={`text-2xl font-bold ${saldoNetoGeneral >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
-                    ${saldoNetoGeneral.toFixed(2)}
-                  </h3>
-                </div>
-                <DollarSign className={`w-8 h-8 ${saldoNetoGeneral >= 0 ? 'text-purple-600' : 'text-red-600'}`} />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(124,58,237,0.05))', border: '1px solid rgba(139,92,246,0.2)' }}>
+            <p className="text-violet-400/70 text-xs font-bold uppercase tracking-wider">✅ Saldo USD</p>
+            <p className={`text-3xl font-black mt-1 ${saldoNetoUSD >= 0 ? 'text-violet-400' : 'text-red-400'}`}>${saldoNetoUSD.toFixed(2)}</p>
+          </div>
+
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.05))', border: '1px solid rgba(245,158,11,0.2)' }}>
+            <p className="text-amber-400/70 text-xs font-bold uppercase tracking-wider">💳 Saldo Bs</p>
+            <p className={`text-3xl font-black mt-1 ${saldoNetoBs >= 0 ? 'text-amber-400' : 'text-red-400'}`}>Bs {saldoNetoBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+            <div className="flex gap-3 mt-2 text-xs">
+              <span className="text-amber-300/60">▲ Bs {totalEntradasBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}</span>
+              <span className="text-red-300/60">▼ Bs {totalSalidasBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}</span>
+            </div>
+          </div>
         </div>
 
         {/* Reportes por Método */}
-        <Card className="shadow-lg border-none">
-          <CardHeader>
-            <CardTitle>📊 Reportes Disponibles</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6">
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="p-5">
+            <h3 className="text-white font-semibold flex items-center gap-2 mb-4">📊 Reportes Disponibles</h3>
             {reportes.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {reportes.map(reporte => {
                   const saldoPositivo = reporte.saldo >= 0;
                   return (
-                    <Card 
+                    <div 
                       key={reporte.metodo} 
-                      className={`shadow-md border-2 ${saldoPositivo ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}
+                      className="rounded-xl p-4 space-y-3"
+                      style={{ background: saldoPositivo ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${saldoPositivo ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}
                     >
-                      <CardContent className="p-4 space-y-3">
-                        <h3 className="font-bold text-gray-900">{reporte.label}</h3>
-                        
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-600">💰 Entradas:</span>
-                            <span className="font-semibold text-green-600">
-                              ${reporte.entradas.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-600">💸 Salidas:</span>
-                            <span className="font-semibold text-red-600">
-                              ${reporte.salidas.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center pt-2 border-t">
-                            <span className="text-gray-700 font-medium">✅ Saldo:</span>
-                            <span className={`font-bold text-lg ${saldoPositivo ? 'text-green-700' : 'text-red-700'}`}>
-                              ${reporte.saldo.toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center text-xs text-gray-500">
-                            <span>📊 Movimientos:</span>
-                            <span>{reporte.cantidad_movimientos}</span>
-                          </div>
+                      <h3 className="font-bold text-white">{reporte.label}</h3>
+                      
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">💰 Entradas:</span>
+                          <span className="font-semibold text-emerald-400">
+                            {reporte.esBs 
+                              ? `Bs ${reporte.entradas.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                              : `$${reporte.entradas.toFixed(2)}`
+                            }
+                          </span>
                         </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">💸 Salidas:</span>
+                          <span className="font-semibold text-red-400">
+                            {reporte.esBs 
+                              ? `Bs ${reporte.salidas.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                              : `$${reporte.salidas.toFixed(2)}`
+                            }
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                          <span className="text-slate-300 font-medium">✅ Saldo:</span>
+                          <span className={`font-bold text-lg ${saldoPositivo ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {reporte.esBs 
+                              ? `Bs ${reporte.saldo.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                              : `$${reporte.saldo.toFixed(2)}`
+                            }
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-slate-500">
+                          <span>📊 Movimientos:</span>
+                          <span>{reporte.cantidad_movimientos}</span>
+                        </div>
+                      </div>
 
-                        <Link to={createPageUrl(`ReporteEntradaSalidaDetalle?metodo=${reporte.metodo}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
-                          <Button className="w-full mt-2" size="sm" variant="outline">
-                            <Eye className="w-4 h-4 mr-2" />
-                            Ver Reporte Completo
-                          </Button>
-                        </Link>
-                      </CardContent>
-                    </Card>
+                      <Link to={createPageUrl(`ReporteEntradaSalidaDetalle?metodo=${reporte.metodo}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
+                        <Button className="w-full mt-2 bg-white/10 hover:bg-white/20 text-white border-white/10" size="sm" variant="outline">
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ver Reporte Completo
+                        </Button>
+                      </Link>
+                    </div>
                   );
                 })}
               </div>
             ) : (
               <div className="text-center py-12">
-                <TrendingDown className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No hay movimientos en este período</p>
+                <TrendingDown className="w-16 h-16 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-400">No hay movimientos en este período</p>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

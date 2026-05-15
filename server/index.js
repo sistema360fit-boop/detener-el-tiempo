@@ -1,259 +1,165 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import fs from 'fs';
+
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+
+// Importar configuración y middlewares
+import supabase from './config/supabase.js';
+import { requireAuth, requireAdmin } from './middlewares/auth.js';
+
+// Importar rutas
+import authRoutes from './routes/auth.js';
+import platosRoutes from './routes/platos.js';
+import recetasRoutes from './routes/recetas.js';
+import usuariosRoutes from './routes/usuarios.js';
+import personalRoutes from './routes/personal.js';
+import ingredientesRoutes from './routes/ingredientes.js';
+import alertasRoutes from './routes/alertas.js';
+import ventasRoutes from './routes/ventas.js';
+import comandasRoutes from './routes/comandas.js';
+import syncRoutes from './routes/sync.js';
+import gastosRoutes from './routes/gastos.js';
+import adelantosRoutes from './routes/adelantos.js';
+import categoriasGastoRoutes from './routes/categoriasGasto.js';
+import tasasCambioRoutes from './routes/tasasCambio.js';
+import recetasPrimariasRoutes from './routes/recetasPrimarias.js';
+import recetasSecundariasRoutes from './routes/recetasSecundarias.js';
+import detalleRecetasPrimariasRoutes from './routes/detalleRecetasPrimarias.js';
+import detalleRecetasSecundariasRoutes from './routes/detalleRecetasSecundarias.js';
+import pagosMixtosRoutes from './routes/pagosMixtos.js';
+import mantenimientoRoutes from './routes/mantenimiento.js';
+import { addClient } from './services/cocinaEvents.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Usar SQLite local o PostgreSQL en producción
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL || "file:./prisma/dev.db"
-    }
-  }
+const app = express();
+
+// Seguridad
+app.use(helmet());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*', // En producción especificar dominios
+  credentials: true
+}));
+app.use(express.json());
+
+// Rate limiting para el login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 15, // Limitar cada IP a 15 intentos de login por ventana
+  message: { error: 'Demasiados intentos de login, por favor intente de nuevo en 15 minutos' }
 });
 
-// Verificar conexión a la base de datos al iniciar
-prisma.$connect()
-  .then(() => {
-    console.log('✅ Conectado a la base de datos PostgreSQL');
-  })
-  .catch((err) => {
-    console.error('❌ Error conectando a la base de datos:', err.message);
-  });
-
-const app = express();
-app.use(cors());
-app.use(express.json());
+// Registrar rutas
+app.use('/api/auth/login', loginLimiter); // Aplicar solo al login para seguridad
+app.use('/api/auth', authRoutes);
+app.use('/api/platos', platosRoutes);
+app.use('/api/recetas', recetasRoutes);
+app.use('/api/usuarios', usuariosRoutes);
+app.use('/api/personal', personalRoutes);
+app.use('/api/ingredientes', ingredientesRoutes);
+app.use('/api/alertastocks', alertasRoutes);
+app.use('/api/ventas', ventasRoutes);
+app.use('/api/comandas', comandasRoutes);
+app.use('/api/sync', syncRoutes);
+app.use('/api/gastos', gastosRoutes);
+app.use('/api/adelantos', adelantosRoutes);
+app.use('/api/categorias-gasto', categoriasGastoRoutes);
+app.use('/api/tasas-cambio', tasasCambioRoutes);
+app.use('/api/recetaprimarias', recetasPrimariasRoutes);
+app.use('/api/recetasecundarias', recetasSecundariasRoutes);
+app.use('/api/detallerecetaprimarias', detalleRecetasPrimariasRoutes);
+app.use('/api/detallerecetasecundarias', detalleRecetasSecundariasRoutes);
+app.use('/api/pagomixtos', pagosMixtosRoutes);
+app.use('/api/mantenimiento', mantenimientoRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-// === AUTH ENDPOINTS ===
+// === SSE: Stream en tiempo real para la cocina ===
+// EventSource no soporta headers → acepta token via query param o Authorization header
+app.get('/api/cocina/stream', (req, res) => {
+  // Inyectar token de query param al header para reutilizar requireAuth
+  if (req.query.token && !req.headers.authorization) {
+    req.headers.authorization = `Bearer ${req.query.token}`;
+  }
 
-// Register new user
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { email, password, nombre, rol } = req.body;
-    if (!email || !password || !nombre) {
-      return res.status(400).json({ error: 'Email, password y nombre son requeridos' });
-    }
-    const existing = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
-    if (existing) {
-      return res.status(400).json({ error: 'Ya existe un usuario con ese email' });
-    }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const usuario = await prisma.usuario.create({
-      data: {
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        nombre,
-        rol: rol || 'administrador',
-      },
+  requireAuth(req, res, () => {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
     });
-    res.json({ id: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol });
-  } catch (e) {
-    console.error('Register error', e);
-    res.status(500).json({ error: e.message });
-  }
+    // Heartbeat cada 30s para mantener la conexión abierta
+    const heartbeat = setInterval(() => {
+      res.write(': heartbeat\n\n');
+    }, 30000);
+    res.on('close', () => clearInterval(heartbeat));
+    addClient(res);
+  });
 });
 
-// Login
-app.post('/api/auth/login', async (req, res) => {
+// === ADMIN ENDPOINTS (solo lectura, sin eliminación) ===
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email y password son requeridos' });
-    }
-    
-    // Log para debug
-    console.log('Intentando login con:', email);
-    
-    const usuario = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
-    if (!usuario) {
-      return res.status(401).json({ error: 'Usuario no encontrado' });
-    }
-    if (!usuario.activo) {
-      return res.status(401).json({ error: 'Usuario inactivo' });
-    }
-    const valid = await bcrypt.compare(password, usuario.password);
-    if (!valid) {
-      return res.status(401).json({ error: 'Contraseña incorrecta' });
-    }
-    res.json({ id: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol });
-  } catch (e) {
-    console.error('Login error detallado:', e);
-    res.status(500).json({ error: 'Error del servidor: ' + e.message });
-  }
-});
-
-// Get all users (for admin)
-app.get('/api/usuarios', async (req, res) => {
-  try {
-    const usuarios = await prisma.usuario.findMany({
-      select: { id: true, email: true, nombre: true, rol: true, activo: true, createdAt: true },
-    });
-    res.json(usuarios);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Update user (admin only)
-app.put('/api/usuarios', async (req, res) => {
-  try {
-    const { id, email, password, nombre, rol, activo } = req.body;
-    if (!id || !email || !nombre) {
-      return res.status(400).json({ error: 'ID, email y nombre son requeridos' });
-    }
-    
-    const updateData = {
-      email: email.toLowerCase(),
-      nombre,
-      rol: rol || 'mesero',
-      activo: activo !== false,
+    const getData = async (tableName) => {
+      try {
+        const { data, error } = await supabase.from(tableName).select('*').limit(100);
+        if (error) return { error: error.message, count: 0, data: [] };
+        return { count: data.length, data };
+      } catch (e) {
+        return { error: e.message, count: 0, data: [] };
+      }
     };
     
-    // Only update password if provided
-    if (password) {
-      updateData.password = await bcrypt.hash(password, 10);
-    }
+    const [ventas, comandas, gastos, pagosMixtos, cuentasPorCobrar, empleados, platos, ingredientes, compras, adelantos, alertas, usuarios] = await Promise.all([
+      getData('Venta'),
+      getData('Comanda'),
+      getData('Gasto'),
+      getData('PagoMixto'),
+      getData('CuentaPorCobrar'),
+      getData('Empleado'),
+      getData('Plato'),
+      getData('Ingrediente'),
+      getData('Compra'),
+      getData('Adelanto'),
+      getData('AlertaStock'),
+      getData('Usuario')
+    ]);
     
-    const usuario = await prisma.usuario.update({
-      where: { id },
-      data: updateData,
-    });
-    
-    res.json({ id: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol });
+    res.json({ ventas, comandas, gastos, pagosMixtos, cuentasPorCobrar, empleados, platos, ingredientes, compras, adelantos, alertas, usuarios });
   } catch (e) {
-    console.error('Update user error', e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Reset password - for debugging/testing
-app.post('/api/auth/reset-password', async (req, res) => {
-  try {
-    const { email, newPassword } = req.body;
-    if (!email || !newPassword) {
-      return res.status(400).json({ error: 'Email y nueva contraseña son requeridos' });
-    }
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    const usuario = await prisma.usuario.update({
-      where: { email: email.toLowerCase() },
-      data: { password: hashedPassword },
-    });
-    res.json({ ok: true, email: usuario.email });
-  } catch (e) {
-    console.error('Reset password error', e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ===
-
-app.get('/api/platos', async (req, res) => {
-  const platos = await prisma.plato.findMany();
-  res.json(platos);
-});
-
-app.get('/api/ingredientes', async (req, res) => {
-  const ings = await prisma.ingrediente.findMany();
-  res.json(ings);
-});
-
-app.post('/api/ventas', async (req, res) => {
-  try {
-    const { total_venta, metodo_pago, detalles } = req.body;
-    const venta = await prisma.venta.create({
-      data: {
-        total_venta,
-        metodo_pago,
-        detalles: {
-          create: (detalles || []).map(d => ({
-            platoId: d.plato_id || d.platoId || null,
-            platoNombre: d.plato_nombre || d.platoNombre || null,
-            cantidad: d.cantidad,
-            precioUnitario: d.precio_unitario || d.precioUnitario || 0,
-            subtotal: d.subtotal || 0
-          }))
-        }
-      },
-      include: { detalles: true }
-    });
-    res.json(venta);
-  } catch (e) {
-    console.error('Error creating venta', e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Endpoint para sincronizar datos desde el frontend (bulk sync desde localStorage)
-app.post('/api/sync', async (req, res) => {
-  try {
-    const payload = req.body || {};
-    const entities = payload.entities || {};
-
-    // helper para convertir nombres de entidad a propiedades de Prisma (camelCase)
-    const toPrismaProp = (name) => {
-      return name.charAt(0).toLowerCase() + name.slice(1);
-    };
-
-    const results = {};
-
-    for (const [entityName, items] of Object.entries(entities)) {
-      const prop = toPrismaProp(entityName);
-      if (!prisma[prop]) {
-        console.warn('Prisma model not found for', prop);
-        continue;
-      }
-
-      results[entityName] = [];
-      for (const item of items) {
-        try {
-          if (item.id) {
-            // try upsert by id
-            const up = await prisma[prop].upsert({
-              where: { id: item.id },
-              update: item,
-              create: item
-            });
-            results[entityName].push(up);
-          } else {
-            const created = await prisma[prop].create({ data: item });
-            results[entityName].push(created);
-          }
-        } catch (e) {
-          console.warn('Error syncing item for', entityName, e.message);
-        }
-      }
-    }
-
-    res.json({ ok: true, results });
-  } catch (e) {
-    console.error('Sync error', e);
+    console.error('Admin stats error', e);
     res.status(500).json({ error: e.message });
   }
 });
 
 // Servir el build de producción de Vite (dist/)
 const distPath = path.join(__dirname, '..', 'dist');
-app.use(express.static(distPath));
-app.get('/{*path}', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
-});
+const distExists = fs.existsSync(distPath);
 
-const port = process.env.PORT || 4000;
-
-// Servir archivos estáticos del frontend en producción
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+if (distExists) {
+  app.use(express.static(distPath));
+  
+  // Catch-all para SPA: solo para rutas que NO son /api/*
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+} else {
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.json({ 
+      message: 'API Server Running', 
+      hint: 'Run "npm run build" to build the frontend or "npm run dev" for development',
+      endpoints: ['/api/health', '/api/auth/login', '/api/comandas', '/api/ventas']
+    });
   });
 }
+
+const port = process.env.PORT || 4000;
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);

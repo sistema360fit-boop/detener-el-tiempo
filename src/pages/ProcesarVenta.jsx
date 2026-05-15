@@ -44,7 +44,7 @@ export default function ProcesarVenta() {
         // 2. Procesar cada plato del carrito y descontar inventario con EXPLOSIÓN DE MATERIALES
         console.log('🛒 INICIANDO PROCESAMIENTO DE CARRITO:', carrito.length, 'items');
         
-        const detallesPromises = carrito.map(async (item) => {
+        for (const item of carrito) {
           console.log(`📦 Procesando: ${item.plato.nombre} x ${item.cantidad}`);
           
           // Crear detalle de venta
@@ -62,10 +62,7 @@ export default function ProcesarVenta() {
           console.log(`🔥 Ejecutando explosión de materiales para: ${item.plato.nombre}`);
           const resultado = await descontarStock(item.plato.id, item.cantidad);
           console.log('✅ Resultado explosión:', resultado);
-        });
-
-        // Esperar a que todos los detalles se procesen
-        await Promise.all(detallesPromises);
+        }
         console.log('✅ VENTA COMPLETADA - Todos los ingredientes descontados');
 
         return venta;

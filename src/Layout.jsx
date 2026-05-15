@@ -12,7 +12,8 @@ import {
   DollarSign,
   Users,
   LogOut,
-  FileText
+  FileText,
+  RefreshCw
 } from "lucide-react";
 import {
   Sidebar,
@@ -36,6 +37,11 @@ const navigationItems = [
     url: createPageUrl("Dashboard"),
     icon: LayoutDashboard,
     roles: ['administrador']
+  },
+  {
+    title: "Depuración y Cierre",
+    url: createPageUrl("ConfiguracionRetencion"),
+    icon: RefreshCw
   },
   {
     title: "Punto de Venta",
@@ -146,12 +152,6 @@ const navigationItems = [
     roles: ['administrador']
   },
   {
-    title: "Retención de Datos",
-    url: createPageUrl("ConfiguracionRetencion"),
-    icon: DollarSign,
-    roles: ['administrador']
-  },
-  {
     title: "Reset Sistema",
     url: createPageUrl("AdminReset"),
     icon: AlertTriangle,
@@ -228,6 +228,7 @@ export default function Layout({ children, currentPageName }) {
 
   const handleLogout = () => {
     localStorage.removeItem('empleado_sesion');
+    localStorage.removeItem('jwt_token');
     navigate(createPageUrl("Acceso"));
   };
 

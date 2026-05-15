@@ -317,7 +317,6 @@ export default function RecetasPrimarias() {
         </Card>
 
         {/* Listado de Recetas */}
-        {/* Aquí va tu componente RecetasPrimariasList */}
         <RecetasPrimariasList
           recetas={filteredRecetas}
           detalles={detalles}

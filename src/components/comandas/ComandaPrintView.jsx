@@ -157,12 +157,12 @@ export default function ComandaPrintView({
                   <div key={idx} className="item">
                     <div className="item-row">
                       <span><strong>{detalle.cantidad}x</strong> {detalle.plato_nombre}</span>
-                      <span>${detalle.subtotal?.toFixed(2)}</span>
+                      <span>${(detalle.subtotal ?? 0).toFixed(2)}</span>
                     </div>
                     {detalle.notas_plato && (
                       <div className="item-nota">Nota: {detalle.notas_plato}</div>
                     )}
-                    <div className="item-precio">${detalle.precio_unitario?.toFixed(2)} c/u</div>
+                    <div className="item-precio">${(detalle.precio_unitario ?? 0).toFixed(2)} c/u</div>
                   </div>
                 ))}
               </div>

@@ -153,203 +153,161 @@ export default function ReportesMetodosPago() {
 
   if (isLoading) {
     return (
-      <div className="p-4 md:p-8 min-h-screen">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-12 text-center">
-              <p className="text-gray-500">Cargando reportes...</p>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+        <p className="text-slate-400">Cargando reportes...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-8 min-h-screen">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3">
-            <CreditCard className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
-            <span className="leading-tight">Reportes por Método de Pago</span>
-          </h1>
-          <p className="text-sm sm:text-base text-gray-500 mt-1">
-            Análisis detallado de ingresos por canal
-          </p>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+      <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
+        {/* Header Premium */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 py-2">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+              <div className="p-2 rounded-xl" style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+                <CreditCard className="w-6 h-6 text-white" />
+              </div>
+              Reportes por Método de Pago
+            </h1>
+            <p className="text-slate-400 mt-1 text-sm">Análisis detallado de ingresos por canal</p>
+          </div>
+          <Button onClick={exportarExcel} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 w-full sm:w-auto">
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Exportar CSV
+          </Button>
         </div>
 
         {/* Filtros */}
-        <Card className="shadow-lg border-none">
-          <CardContent className="p-4 sm:p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-              <div className="space-y-2">
-                <Label>Fecha Inicio</Label>
-                <Input
-                  type="date"
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Fecha Fin</Label>
-                <Input
-                  type="date"
-                  value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                />
-              </div>
-              <Button onClick={exportarExcel} variant="outline" className="w-full">
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Exportar Excel
-              </Button>
+        <div className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+            <div className="space-y-1.5">
+              <Label className="text-slate-400 text-xs">Fecha Inicio</Label>
+              <Input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="bg-white/10 border-white/10 text-white" />
             </div>
-          </CardContent>
-        </Card>
+            <div className="space-y-1.5">
+              <Label className="text-slate-400 text-xs">Fecha Fin</Label>
+              <Input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} className="bg-white/10 border-white/10 text-white" />
+            </div>
+          </div>
+        </div>
 
         {/* Resumen General */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Total USD</p>
-                  <h3 className="text-2xl font-bold text-green-600">
-                    ${totalGeneral.toFixed(2)}
-                  </h3>
-                </div>
-                <DollarSign className="w-8 h-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.05))', border: '1px solid rgba(16,185,129,0.2)' }}>
+            <p className="text-emerald-400/70 text-xs font-bold uppercase tracking-wider">Total USD</p>
+            <p className="text-3xl font-black mt-1 text-emerald-400">${totalGeneral.toFixed(2)}</p>
+            <DollarSign className="absolute top-4 right-4 w-12 h-12 text-emerald-500/20" />
+          </div>
 
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Total Ventas</p>
-                  <h3 className="text-2xl font-bold text-blue-600">{cantidadTotal}</h3>
-                </div>
-                <CreditCard className="w-8 h-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(37,99,235,0.05))', border: '1px solid rgba(59,130,246,0.2)' }}>
+            <p className="text-blue-400/70 text-xs font-bold uppercase tracking-wider">Total Ventas</p>
+            <p className="text-3xl font-black mt-1 text-blue-400">{cantidadTotal}</p>
+            <CreditCard className="absolute top-4 right-4 w-12 h-12 text-blue-500/20" />
+          </div>
 
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Promedio</p>
-                  <h3 className="text-2xl font-bold text-amber-600">
-                    ${promedioVenta.toFixed(2)}
-                  </h3>
-                </div>
-                <TrendingUp className="w-8 h-8 text-amber-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.05))', border: '1px solid rgba(245,158,11,0.2)' }}>
+            <p className="text-amber-400/70 text-xs font-bold uppercase tracking-wider">Promedio</p>
+            <p className="text-3xl font-black mt-1 text-amber-400">${promedioVenta.toFixed(2)}</p>
+            <TrendingUp className="absolute top-4 right-4 w-12 h-12 text-amber-500/20" />
+          </div>
         </div>
 
         {/* Métodos en Dólares */}
         {grupos.dólares.length > 0 && (
-          <Card className="shadow-lg border-none">
-            <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
-              <CardTitle className="text-lg">💵 Métodos en Dólares</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <div className="space-y-3">
-                {grupos.dólares.map(metodo => (
-                  <div key={metodo.key} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{metodo.label}</p>
-                      <p className="text-sm text-gray-500">{metodo.cantidad} ventas • Promedio: ${(metodo.total_usd / metodo.cantidad).toFixed(2)}</p>
-                    </div>
-                    <div className="text-right mr-4">
-                      <p className="text-xl font-bold text-green-600">
-                        ${metodo.total_usd.toFixed(2)}
-                      </p>
-                    </div>
-                    <Link to={createPageUrl(`ReporteDetalle?metodo=${metodo.key}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
-                      <Button size="sm" variant="outline">
-                        <Eye className="w-4 h-4 mr-1" />
-                        Ver Detalle
-                      </Button>
-                    </Link>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="p-4 sm:p-6 bg-gradient-to-r from-emerald-500/20 to-transparent border-b border-white/5">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">💵 Métodos en Dólares</h3>
+            </div>
+            <div className="p-4 sm:p-6 space-y-3">
+              {grupos.dólares.map(metodo => (
+                <div key={metodo.key} className="flex justify-between items-center p-4 rounded-xl transition-colors hover:bg-white/5 border border-white/5" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <div className="flex-1">
+                    <p className="font-semibold text-white">{metodo.label}</p>
+                    <p className="text-sm text-slate-400">{metodo.cantidad} ventas • Promedio: ${(metodo.total_usd / metodo.cantidad).toFixed(2)}</p>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="text-right mr-4">
+                    <p className="text-xl font-bold text-emerald-400">
+                      ${metodo.total_usd.toFixed(2)}
+                    </p>
+                  </div>
+                  <Link to={createPageUrl(`ReporteDetalle?metodo=${metodo.key}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
+                    <Button size="sm" variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/10">
+                      <Eye className="w-4 h-4 mr-1" />
+                      Ver Detalle
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Métodos en Pesos */}
         {grupos.pesos.length > 0 && (
-          <Card className="shadow-lg border-none">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
-              <CardTitle className="text-lg">🇨🇴 Métodos en Pesos</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <div className="space-y-3">
-                {grupos.pesos.map(metodo => (
-                  <div key={metodo.key} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{metodo.label}</p>
-                      <p className="text-sm text-gray-500">{metodo.cantidad} ventas • Promedio: ${(metodo.total_usd / metodo.cantidad).toFixed(2)}</p>
-                    </div>
-                    <div className="text-right mr-4">
-                      <p className="text-xl font-bold text-blue-600">
-                        ${metodo.total_usd.toFixed(2)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        ₡ {metodo.total_original.toLocaleString('es-ES')}
-                      </p>
-                    </div>
-                    <Link to={createPageUrl(`ReporteDetalle?metodo=${metodo.key}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
-                      <Button size="sm" variant="outline">
-                        <Eye className="w-4 h-4 mr-1" />
-                        Ver Detalle
-                      </Button>
-                    </Link>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="p-4 sm:p-6 bg-gradient-to-r from-cyan-500/20 to-transparent border-b border-white/5">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">🇨🇴 Métodos en Pesos</h3>
+            </div>
+            <div className="p-4 sm:p-6 space-y-3">
+              {grupos.pesos.map(metodo => (
+                <div key={metodo.key} className="flex justify-between items-center p-4 rounded-xl transition-colors hover:bg-white/5 border border-white/5" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <div className="flex-1">
+                    <p className="font-semibold text-white">{metodo.label}</p>
+                    <p className="text-sm text-slate-400">{metodo.cantidad} ventas • Promedio: ${(metodo.total_usd / metodo.cantidad).toFixed(2)}</p>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="text-right mr-4">
+                    <p className="text-xl font-bold text-cyan-400">
+                      ${metodo.total_usd.toFixed(2)}
+                    </p>
+                    <p className="text-sm text-cyan-300/60">
+                      ₡ {metodo.total_original.toLocaleString('es-ES')}
+                    </p>
+                  </div>
+                  <Link to={createPageUrl(`ReporteDetalle?metodo=${metodo.key}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
+                    <Button size="sm" variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/10">
+                      <Eye className="w-4 h-4 mr-1" />
+                      Ver Detalle
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Métodos en Bolívares */}
         {grupos.bolívares.length > 0 && (
-          <Card className="shadow-lg border-none">
-            <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50">
-              <CardTitle className="text-lg">🇻🇪 Métodos en Bolívares</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <div className="space-y-3">
-                {grupos.bolívares.map(metodo => (
-                  <div key={metodo.key} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{metodo.label}</p>
-                      <p className="text-sm text-gray-500">{metodo.cantidad} ventas • Promedio: ${(metodo.total_usd / metodo.cantidad).toFixed(2)}</p>
-                    </div>
-                    <div className="text-right mr-4">
-                      <p className="text-xl font-bold text-amber-600">
-                        ${metodo.total_usd.toFixed(2)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Bs {metodo.total_original.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
-                    <Link to={createPageUrl(`ReporteDetalle?metodo=${metodo.key}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
-                      <Button size="sm" variant="outline">
-                        <Eye className="w-4 h-4 mr-1" />
-                        Ver Detalle
-                      </Button>
-                    </Link>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="p-4 sm:p-6 bg-gradient-to-r from-amber-500/20 to-transparent border-b border-white/5">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">🇻🇪 Métodos en Bolívares</h3>
+            </div>
+            <div className="p-4 sm:p-6 space-y-3">
+              {grupos.bolívares.map(metodo => (
+                <div key={metodo.key} className="flex justify-between items-center p-4 rounded-xl transition-colors hover:bg-white/5 border border-white/5" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <div className="flex-1">
+                    <p className="font-semibold text-white">{metodo.label}</p>
+                    <p className="text-sm text-slate-400">{metodo.cantidad} ventas • Promedio: ${(metodo.total_usd / metodo.cantidad).toFixed(2)}</p>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="text-right mr-4">
+                    <p className="text-xl font-bold text-amber-400">
+                      Bs {metodo.total_original.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-sm text-amber-300/60">
+                      (${metodo.total_usd.toFixed(2)} equiv.)
+                    </p>
+                  </div>
+                  <Link to={createPageUrl(`ReporteDetalle?metodo=${metodo.key}&inicio=${fechaInicio}&fin=${fechaFin}`)}>
+                    <Button size="sm" variant="outline" className="bg-white/10 hover:bg-white/20 text-white border-white/10">
+                      <Eye className="w-4 h-4 mr-1" />
+                      Ver Detalle
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -64,7 +64,7 @@ export default function RecetasSecundariasList({ recetas, detalles, onEdit, onDe
                 <div className="bg-green-50 p-3 rounded-lg">
                   <p className="text-xs text-gray-600">Costo/Unidad</p>
                   <p className="text-lg font-bold text-green-600">
-                    ${receta.costo_por_unidad.toFixed(2)}
+                    ${(receta.costo_por_unidad ?? 0).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -102,7 +102,7 @@ export default function RecetasSecundariasList({ recetas, detalles, onEdit, onDe
               <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
                 <p className="text-xs text-gray-600">Costo Total</p>
                 <p className="text-xl font-bold text-purple-600">
-                  ${receta.costo_total.toFixed(2)}
+                  ${(receta.costo_total ?? 0).toFixed(2)}
                 </p>
               </div>
 

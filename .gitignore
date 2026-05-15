@@ -6,3 +6,9 @@ dist/
 prisma/dev.db
 prisma/migrations/dev/
 tmp/
+*.log
+server.log
+.env.production
+.agents/
+.kilo/
+scratch/

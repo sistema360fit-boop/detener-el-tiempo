@@ -47,7 +47,7 @@ export default function ReportePlatosTop({ detalles, platos }) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-green-600">${plato.total.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-green-600">${(plato.total ?? 0).toFixed(2)}</p>
                   <p className="text-xs text-gray-500">en ventas</p>
                 </div>
               </div>

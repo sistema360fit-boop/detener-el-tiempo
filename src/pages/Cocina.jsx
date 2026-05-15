@@ -1,12 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { api as base44 } from "@/api/apiAdapter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChefHat, Clock, CheckCircle, Utensils, User } from "lucide-react";
+import { ChefHat, Clock, CheckCircle, Utensils, User, Wifi, WifiOff, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 
-// Componente para el contador de tiempo real
+// ─── Sonido de alerta ────────────────────────────────────────────────
+const ALERT_SOUND_BASE64 =
+  'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDGH0fPTgjMGHm7A7+OZSA0PVqzn77BdGQc+ltryxnMlBSyAzfLYiTcIGWi77eeeTRAMUKfj8LZjHAY4ktfyzHksBSR3x/DdkEAKFF606+uoVRQKRp/g8r5sIQQxh9Hz04I0Bh5uwO/jmUgND1as5++wXRkHPpbZ8sVzJQUsgM3y2Ik3CBlou+3nnk0QDFCn4/C2YxwGOJLX8sx5LAUkd8fw3ZBACBResnbznkwQDU+m4++1Xx0GOZTa88l4LAYmeMjvAjRdYWZ7lNLYwmIbAzJpvvHL';
+
+// ─── Componente: Contador de tiempo real ────────────────────────────
 const TiempoEspera = ({ fechaApertura }) => {
   const [minutos, setMinutos] = useState(0);
 
@@ -20,33 +24,92 @@ const TiempoEspera = ({ fechaApertura }) => {
     return () => clearInterval(interval);
   }, [fechaApertura]);
 
-  const colorClass = minutos > 15 ? "text-red-500 animate-pulse" : "text-white/80";
+  const getColor = () => {
+    if (minutos > 20) return "text-red-500 animate-pulse";
+    if (minutos > 10) return "text-amber-400";
+    return "text-emerald-400";
+  };
 
   return (
-    <div className={`flex items-center gap-1 font-bold ${colorClass}`}>
+    <div className={`flex items-center gap-1.5 font-bold ${getColor()}`}>
       <Clock className="w-4 h-4" />
-      <span>{minutos} min</span>
+      <span className="tabular-nums">{minutos} min</span>
     </div>
   );
 };
 
+// ─── Hook: Conexión SSE en tiempo real ──────────────────────────────
+function useCocinaSSE(onEvent) {
+  const [connected, setConnected] = useState(false);
+  const eventSourceRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+
+  const connect = useCallback(() => {
+    // Limpiar conexión previa
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    const token = localStorage.getItem('jwt_token');
+    if (!token) return;
+
+    // EventSource no soporta headers → pasamos token como query param
+    const es = new EventSource(`/api/cocina/stream?token=${encodeURIComponent(token)}`);
+    eventSourceRef.current = es;
+
+    es.onopen = () => {
+      setConnected(true);
+      console.log('[Cocina SSE] ✅ Conectado');
+    };
+
+    es.addEventListener('cocina', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        onEvent(data);
+      } catch (err) {
+        console.error('[Cocina SSE] Error parseando evento:', err);
+      }
+    });
+
+    es.onerror = () => {
+      setConnected(false);
+      es.close();
+      // Reconectar después de 3s
+      reconnectTimeoutRef.current = setTimeout(connect, 3000);
+    };
+  }, [onEvent]);
+
+  useEffect(() => {
+    connect();
+    return () => {
+      if (eventSourceRef.current) eventSourceRef.current.close();
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    };
+  }, [connect]);
+
+  return connected;
+}
+
+// ─── Componente Principal: Cocina ───────────────────────────────────
 export default function Cocina() {
   const queryClient = useQueryClient();
   const [comandasAgrupadas, setComandasAgrupadas] = useState([]);
-  const [ultimaCantidadPlatos, setUltimaCantidadPlatos] = useState(0);
+  const [sonidoActivo, setSonidoActivo] = useState(true);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
+  const [flashId, setFlashId] = useState(null); // Para animación de nueva comanda
 
-  // 1. Obtener comandas activas
+  // 1. Obtener comandas activas (se refresca vía SSE + fallback polling lento)
   const { data: comandas = [] } = useQuery({
     queryKey: ['comandas-cocina'],
     queryFn: () => base44.entities.Comanda.list('-created_date', 200),
-    refetchInterval: 5000,
+    refetchInterval: 30000, // Fallback: cada 30s (SSE hace el trabajo pesado)
   });
 
   // 2. Obtener detalles de platos pendientes
   const { data: detalles = [] } = useQuery({
     queryKey: ['detalles-comandas-cocina'],
     queryFn: () => base44.entities.DetalleComanda.list('-created_date', 500),
-    refetchInterval: 5000,
+    refetchInterval: 30000,
   });
 
   // 3. Agrupar platos por comanda
@@ -76,58 +139,165 @@ export default function Cocina() {
     setComandasAgrupadas(comandasArray);
   }, [detalles, comandas]);
 
-  // 4. Sonido de alerta para nuevos pedidos
-  useEffect(() => {
-    const cantidadActual = detalles.filter(d => d.estado_plato === 'pendiente').length;
-    if (cantidadActual > ultimaCantidadPlatos && ultimaCantidadPlatos > 0) {
-      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDGH0fPTgjMGHm7A7+OZSA0PVqzn77BdGQc+ltryxnMlBSyAzfLYiTcIGWi77eeeTRAMUKfj8LZjHAY4ktfyzHksBSR3x/DdkEAKFF606+uoVRQKRp/g8r5sIQQxh9Hz04I0Bh5uwO/jmUgND1as5++wXRkHPpbZ8sVzJQUsgM3y2Ik3CBlou+3nnk0QDFCn4/C2YxwGOJLX8sx5LAUkd8fw3ZBACBResnbznkwQDU+m4++1Xx0GOZTa88l4LAYmeMjvAjRdYWZ7lNLYwmIbAzJpvvHL');
+  // 4. Reproducir sonido de alerta
+  const playAlertSound = useCallback(() => {
+    if (!sonidoActivo) return;
+    try {
+      const audio = new Audio(ALERT_SOUND_BASE64);
       audio.play().catch(() => {});
-      toast("🔔 ¡Nuevo pedido recibido!", { position: "top-center" });
-    }
-    setUltimaCantidadPlatos(cantidadActual);
-  }, [detalles]);
+    } catch {}
+  }, [sonidoActivo]);
 
-  // 5. Mutación para despachar COMANDA COMPLETA
-  const despacharComandaMutation = useMutation({
-    mutationFn: async (platos) => {
+  // 5. Handler de eventos SSE
+  const handleSSEEvent = useCallback((event) => {
+    console.log('[Cocina] Evento SSE recibido:', event.tipo);
+    setUltimaActualizacion(new Date());
+
+    switch (event.tipo) {
+      case 'nueva_comanda': {
+        // Refrescar datos inmediatamente
+        queryClient.invalidateQueries({ queryKey: ['comandas-cocina'] });
+        queryClient.invalidateQueries({ queryKey: ['detalles-comandas-cocina'] });
+        
+        // Alerta visual y sonora
+        playAlertSound();
+        setFlashId(event.payload?.id);
+        setTimeout(() => setFlashId(null), 4000);
+        
+        toast("🔔 ¡NUEVA COMANDA!", {
+          description: `Mesa ${event.payload?.mesa_numero || '?'} — ${event.payload?.mesero_nombre || 'Mesero'}`,
+          position: "top-center",
+          duration: 6000,
+          style: { background: '#f97316', color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }
+        });
+        break;
+      }
+
+      case 'plato_agregado': {
+        queryClient.invalidateQueries({ queryKey: ['comandas-cocina'] });
+        queryClient.invalidateQueries({ queryKey: ['detalles-comandas-cocina'] });
+        
+        playAlertSound();
+        toast("🍽️ Platos agregados", {
+          description: `Se agregaron platos a una comanda`,
+          position: "top-center",
+          duration: 4000,
+        });
+        break;
+      }
+
+      case 'comanda_actualizada': {
+        queryClient.invalidateQueries({ queryKey: ['comandas-cocina'] });
+        queryClient.invalidateQueries({ queryKey: ['detalles-comandas-cocina'] });
+        break;
+      }
+
+      case 'comanda_pagada': {
+        queryClient.invalidateQueries({ queryKey: ['comandas-cocina'] });
+        queryClient.invalidateQueries({ queryKey: ['detalles-comandas-cocina'] });
+        toast.success("✅ Comanda pagada y retirada", { position: "top-center" });
+        break;
+      }
+    }
+  }, [queryClient, playAlertSound]);
+
+  // 6. Conexión SSE
+  const sseConnected = useCocinaSSE(handleSSEEvent);
+
+  // 7. Despachar comanda completa
+  const handleDespachar = async (platos) => {
+    try {
       const promesas = platos.map(plato => 
         base44.entities.DetalleComanda.update(plato.id, { estado_plato: 'listo' })
       );
-      return Promise.all(promesas);
-    },
-    onSuccess: () => {
+      await Promise.all(promesas);
       toast.success("✅ Comanda completa despachada");
       queryClient.invalidateQueries({ queryKey: ['detalles-comandas-cocina'] });
+    } catch {
+      toast.error("Error al despachar comanda");
     }
-  });
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Header Principal */}
-        <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-6 shadow-2xl flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-xl">
-              <ChefHat className="w-10 h-10 text-white" />
+        <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-6 shadow-2xl">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                <ChefHat className="w-10 h-10 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-black text-white tracking-tighter">SISTEMA KDS</h1>
+                <p className="text-orange-100 text-xs font-bold uppercase tracking-widest">Control de Producción — Tiempo Real</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-black text-white tracking-tighter">SISTEMA KDS</h1>
-              <p className="text-orange-100 text-xs font-bold uppercase tracking-widest">Control de Producción</p>
+
+            <div className="flex items-center gap-4">
+              {/* Indicador de conexión */}
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-500 ${
+                sseConnected 
+                  ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300' 
+                  : 'bg-red-500/20 border-red-400/40 text-red-300 animate-pulse'
+              }`}>
+                {sseConnected ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  {sseConnected ? 'EN VIVO' : 'RECONECTANDO...'}
+                </span>
+              </div>
+
+              {/* Toggle sonido */}
+              <button
+                onClick={() => setSonidoActivo(!sonidoActivo)}
+                className={`p-2.5 rounded-xl border transition-all ${
+                  sonidoActivo 
+                    ? 'bg-white/20 border-white/30 text-white' 
+                    : 'bg-black/20 border-white/10 text-white/40'
+                }`}
+                title={sonidoActivo ? 'Silenciar alertas' : 'Activar alertas'}
+              >
+                {sonidoActivo ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+              </button>
+
+              {/* Contador de comandas */}
+              <div className="bg-black/20 px-6 py-2 rounded-2xl border border-white/10 text-center">
+                <p className="text-orange-200 text-[10px] font-bold">PENDIENTES</p>
+                <p className="text-3xl font-black text-white">{comandasAgrupadas.length}</p>
+              </div>
             </div>
           </div>
-          <div className="bg-black/20 px-6 py-2 rounded-2xl border border-white/10 text-center">
-            <p className="text-orange-200 text-[10px] font-bold">MANTENIENDO</p>
-            <p className="text-3xl font-black text-white">{comandasAgrupadas.length}</p>
-          </div>
+
+          {/* Barra de última actualización */}
+          {ultimaActualizacion && (
+            <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-2 text-orange-200/60 text-[10px] font-medium">
+              <div className={`w-2 h-2 rounded-full ${sseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+              Última actualización: {ultimaActualizacion.toLocaleTimeString()}
+            </div>
+          )}
         </div>
 
         {/* Grid de Comandas */}
         {comandasAgrupadas.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {comandasAgrupadas.map((comanda) => (
-              <Card key={comanda.id} className="bg-white border-none shadow-2xl flex flex-col overflow-hidden ring-1 ring-black/5">
+              <Card 
+                key={comanda.id} 
+                className={`bg-white border-none shadow-2xl flex flex-col overflow-hidden ring-1 ring-black/5 transition-all duration-700 ${
+                  flashId === comanda.id 
+                    ? 'ring-4 ring-orange-400 scale-[1.02] shadow-orange-500/30 shadow-[0_0_40px_rgba(249,115,22,0.3)]' 
+                    : ''
+                }`}
+              >
                 
+                {/* Flash de nueva comanda */}
+                {flashId === comanda.id && (
+                  <div className="bg-gradient-to-r from-orange-500 to-amber-400 text-white text-center py-1.5 text-xs font-black uppercase tracking-widest animate-pulse">
+                    🔔 ¡NUEVA! — RECIÉN LLEGADA
+                  </div>
+                )}
+
                 {/* Cabecera de Tarjeta */}
                 <div className="bg-slate-800 p-4">
                   <div className="flex justify-between items-start mb-2">
@@ -177,8 +347,7 @@ export default function Cocina() {
                 {/* Botón de Acción Finalizado */}
                 <div className="p-4 bg-white mt-auto">
                   <Button
-                    onClick={() => despacharComandaMutation.mutate(comanda.platos)}
-                    disabled={despacharComandaMutation.isPending}
+                    onClick={() => handleDespachar(comanda.platos)}
                     className="w-full h-16 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-[0_4px_0_rgb(22,101,52)] active:shadow-none active:translate-y-1 transition-all flex flex-col items-center justify-center gap-0"
                   >
                     <span className="text-[10px] font-black opacity-80 uppercase tracking-tighter">Completar Pedido</span>
@@ -198,7 +367,17 @@ export default function Cocina() {
                 <Utensils className="w-10 h-10 text-slate-600" />
               </div>
               <h2 className="text-2xl font-black text-slate-400 uppercase italic">Cocina en Silencio</h2>
-              <p className="text-slate-600 text-sm">Los nuevos pedidos de los meseros aparecerán aquí con una alerta sonora.</p>
+              <p className="text-slate-600 text-sm">Los nuevos pedidos de los meseros aparecerán aquí automáticamente en tiempo real.</p>
+              
+              {/* Indicador de estado SSE */}
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold ${
+                sseConnected 
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                  : 'bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${sseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+                {sseConnected ? 'Escuchando pedidos en vivo' : 'Reconectando...'}
+              </div>
             </div>
           </div>
         )}

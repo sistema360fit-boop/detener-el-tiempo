@@ -55,6 +55,11 @@ export default function ReportesDiarios() {
     queryFn: () => base44.entities.DetalleComanda.list('-created_date', 2000),
   });
 
+  const { data: adelantos = [], isLoading: loadingAdelantos } = useQuery({
+    queryKey: ['adelantos'],
+    queryFn: () => base44.entities.Adelanto.list('-created_date', 1000),
+  });
+
   const metodosConfig = {
     efectivo_usd: { label: "Efectivo USD", grupo: "USD" },
     binance_usd: { label: "Binance", grupo: "USD" },
@@ -87,15 +92,39 @@ export default function ReportesDiarios() {
         }
       });
 
-      // Filtrar gastos del día
-      const gastosDia = gastos.filter(g => {
+      // Filtrar gastos normales del día
+      const gastosNormales = gastos.filter(g => {
         try {
-          const fechaGasto = parseISO(g.fecha_gasto);
+          const fechaGasto = parseISO(g.fecha_gasto || g.fecha);
           return fechaGasto >= fechaInicio && fechaGasto <= fechaFin;
         } catch {
           return false;
         }
       });
+
+      // Filtrar adelantos del día y agregarlos como gastos
+      const adelantosDia = adelantos.filter(a => {
+        try {
+          const fechaA = parseISO(a.fecha_adelanto || a.fecha || a.createdAt);
+          return fechaA >= fechaInicio && fechaA <= fechaFin;
+        } catch {
+          return false;
+        }
+      });
+
+      const adelantosMapeados = adelantosDia.map(a => ({
+        id: a.id,
+        categoria: 'Adelanto a Personal',
+        descripcion: `Adelanto: ${a.empleado || a.empleadoId || 'Empleado'}${a.descripcion ? ' - ' + a.descripcion : ''}`,
+        monto: a.monto || 0,
+        monto_original: a.monto_original || 0,
+        moneda_original: a.moneda_original,
+        metodo_pago: a.metodo_pago,
+        fecha_gasto: a.fecha_adelanto || a.fecha || a.createdAt,
+        comprobante: ''
+      }));
+
+      const gastosDia = [...gastosNormales, ...adelantosMapeados];
 
       // Filtrar comandas pagadas del día
       const comandasDia = comandas.filter(c => {
@@ -117,10 +146,6 @@ export default function ReportesDiarios() {
 
       const netoDivisas = totalVentasDivisas - totalGastosDivisas;
       const netoBolivares = totalVentasBolivares - totalGastosBolivares;
-
-      const totalVentas = totalVentasDivisas + totalVentasBolivares;
-      const totalGastos = totalGastosDivisas + totalGastosBolivares;
-      const gananciaNeta = totalVentas - totalGastos;
 
       // Ventas por método de pago (con comandas asociadas)
       const ventasPorMetodo = {};
@@ -210,32 +235,42 @@ export default function ReportesDiarios() {
       // Ordenar detalles por hora
       detallesVentas.sort((a, b) => a.hora.localeCompare(b.hora));
 
-      // Gastos por categoría - todo en USD
+      // Gastos por categoría - separado por moneda
       const gastosPorCategoria = {};
       gastosDia.forEach(gasto => {
         const cat = gasto.categoria || 'Otros';
         if (!gastosPorCategoria[cat]) {
           gastosPorCategoria[cat] = { 
             cantidad: 0, 
-            total_usd: 0
+            total_usd: 0,
+            total_bs: 0
           };
         }
         gastosPorCategoria[cat].cantidad += 1;
-        gastosPorCategoria[cat].total_usd += gasto.monto || 0;
+        if (metodosBolivares(gasto.metodo_pago)) {
+          gastosPorCategoria[cat].total_bs += gasto.monto_original || gasto.monto || 0;
+        } else {
+          gastosPorCategoria[cat].total_usd += gasto.monto || 0;
+        }
       });
 
-      // Gastos por método de pago - todo en USD
+      // Gastos por método de pago - moneda correcta
       const gastosPorMetodo = {};
       gastosDia.forEach(gasto => {
         const metodo = gasto.metodo_pago || 'efectivo_usd';
         if (!gastosPorMetodo[metodo]) {
           gastosPorMetodo[metodo] = { 
             cantidad: 0, 
-            total_usd: 0
+            total_usd: 0,
+            total_bs: 0
           };
         }
         gastosPorMetodo[metodo].cantidad += 1;
-        gastosPorMetodo[metodo].total_usd += gasto.monto || 0;
+        if (metodosBolivares(metodo)) {
+          gastosPorMetodo[metodo].total_bs += gasto.monto_original || gasto.monto || 0;
+        } else {
+          gastosPorMetodo[metodo].total_usd += gasto.monto || 0;
+        }
       });
 
       // Detalles de comandas con platos
@@ -264,9 +299,6 @@ export default function ReportesDiarios() {
       setReporte({
         fecha: fechaSeleccionada,
         resumen: {
-          total_ventas: totalVentas,
-          total_gastos: totalGastos,
-          ganancia_neta: gananciaNeta,
           cantidad_ventas: ventasDia.length,
           cantidad_gastos: gastosDia.length,
           cantidad_comandas: comandasDia.length,
@@ -279,7 +311,8 @@ export default function ReportesDiarios() {
           neto_bolivares: netoBolivares
         },
         ventas: {
-          total: totalVentas,
+          total_divisas: totalVentasDivisas,
+          total_bolivares: totalVentasBolivares,
           por_metodo: ventasPorMetodo,
           detalle: detallesVentas
         },
@@ -287,7 +320,8 @@ export default function ReportesDiarios() {
           detalladas: comandasDetalladas
         },
         gastos: {
-          total: totalGastos,
+          total_divisas: totalGastosDivisas,
+          total_bolivares: totalGastosBolivares,
           por_categoria: gastosPorCategoria,
           por_metodo: gastosPorMetodo,
           detalle: gastosDia.map(g => ({
@@ -328,9 +362,12 @@ export default function ReportesDiarios() {
     // 1. RESUMEN EJECUTIVO
     contenido += '1. RESUMEN EJECUTIVO\n';
     contenido += 'Concepto,Valor\n';
-    contenido += `Total Ventas (Ingresos),$${reporte.resumen.total_ventas.toFixed(2)}\n`;
-    contenido += `Total Gastos (Egresos),$${reporte.resumen.total_gastos.toFixed(2)}\n`;
-    contenido += `GANANCIA NETA,$${reporte.resumen.ganancia_neta.toFixed(2)}\n`;
+    contenido += `Ventas USD,$${reporte.resumen.total_divisas.toFixed(2)}\n`;
+    contenido += `Ventas Bs,Bs ${reporte.resumen.total_bolivares.toFixed(2)}\n`;
+    contenido += `Gastos USD,$${reporte.resumen.gastos_divisas.toFixed(2)}\n`;
+    contenido += `Gastos Bs,Bs ${reporte.resumen.gastos_bolivares.toFixed(2)}\n`;
+    contenido += `Neto USD,$${reporte.resumen.neto_divisas.toFixed(2)}\n`;
+    contenido += `Neto Bs,Bs ${reporte.resumen.neto_bolivares.toFixed(2)}\n`;
     contenido += `Total Transacciones Venta,${reporte.resumen.cantidad_ventas}\n`;
     contenido += `Total Transacciones Gasto,${reporte.resumen.cantidad_gastos}\n`;
     contenido += `Comandas Cerradas,${reporte.resumen.cantidad_comandas || 0}\n\n`;
@@ -342,7 +379,8 @@ export default function ReportesDiarios() {
       const nombreMetodo = metodosConfig[metodo]?.label || metodo;
       contenido += `${nombreMetodo},${data.cantidad},$${data.total.toFixed(2)}\n`;
     });
-    contenido += `TOTAL INGRESOS,${reporte.resumen.cantidad_ventas},$${reporte.resumen.total_ventas.toFixed(2)}\n\n`;
+    contenido += `TOTAL INGRESOS USD,,$${reporte.resumen.total_divisas.toFixed(2)}\n`;
+    contenido += `TOTAL INGRESOS BS,,Bs ${reporte.resumen.total_bolivares.toFixed(2)}\n\n`;
 
     // 3. PAGOS MIXTOS
     const ventasMixtas = reporte.ventas.detalle.filter(v => v.es_parte_mixto);
@@ -377,7 +415,8 @@ export default function ReportesDiarios() {
       const descripcion = g.descripcion.replace(/"/g, '""'); // Escapar comillas para CSV
       contenido += `"${descripcion}",${g.categoria},${metodosConfig[g.metodo_pago]?.label || g.metodo_pago},$${g.monto?.toFixed(2) || 0},"${g.comprobante || ''}"\n`;
     });
-    contenido += `TOTAL GASTOS,,,$${reporte.resumen.total_gastos.toFixed(2)},\n`;
+    contenido += `TOTAL GASTOS USD,,,$${reporte.resumen.gastos_divisas.toFixed(2)},\n`;
+    contenido += `TOTAL GASTOS BS,,,Bs ${reporte.resumen.gastos_bolivares.toFixed(2)},\n`;
 
     const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -392,7 +431,7 @@ export default function ReportesDiarios() {
 
 
 
-  const isLoading = loadingVentas || loadingGastos;
+  const isLoading = loadingVentas || loadingGastos || loadingAdelantos;
 
   const [comandasAbiertas, setComandasAbiertas] = useState({});
   const [metodosAbiertos, setMetodosAbiertos] = useState({});
@@ -412,125 +451,106 @@ export default function ReportesDiarios() {
   };
 
   return (
-    <div className="p-4 md:p-8 min-h-screen">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <FileSpreadsheet className="w-8 h-8 text-blue-600" />
-            Reportes Diarios
-          </h1>
-          <p className="text-gray-500 mt-1">Genera y exporta reportes detallados de ventas y gastos</p>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+      <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+        {/* Header Premium */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 py-2">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+              <div className="p-2 rounded-xl" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                <FileSpreadsheet className="w-6 h-6 text-white" />
+              </div>
+              Reportes Diarios
+            </h1>
+            <p className="text-slate-400 mt-1 text-sm">Genera y exporta reportes detallados de ventas y gastos</p>
+          </div>
+          {reporte && (
+            <Button onClick={exportarCSV} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 w-full sm:w-auto">
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Exportar CSV
+            </Button>
+          )}
         </div>
 
         {/* Configuración */}
-        <Card className="shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Configuración del Reporte
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-              <div className="flex-1 space-y-2">
-                <Label>Fecha del Reporte</Label>
-                <Input
-                  type="date"
-                  value={fechaSeleccionada}
-                  onChange={(e) => setFechaSeleccionada(e.target.value)}
-                  max={format(new Date(), 'yyyy-MM-dd')}
-                />
-              </div>
-              <Button 
-                onClick={generarReporte} 
-                disabled={generando || isLoading}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {generando ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Generar Reporte
-                  </>
-                )}
-              </Button>
+        <div className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-violet-400" />
+            <h3 className="text-white font-semibold">Configuración del Reporte</h3>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-slate-400 text-xs">Fecha del Reporte</Label>
+              <Input
+                type="date"
+                value={fechaSeleccionada}
+                onChange={(e) => setFechaSeleccionada(e.target.value)}
+                max={format(new Date(), 'yyyy-MM-dd')}
+                className="bg-white/10 border-white/10 text-white"
+              />
             </div>
-          </CardContent>
-        </Card>
+            <Button 
+              onClick={generarReporte} 
+              disabled={generando || isLoading}
+              className="bg-violet-500 hover:bg-violet-600 text-white shadow-lg shadow-violet-500/25"
+            >
+              {generando ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Generar Reporte
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
 
         {/* Resumen del Día */}
         {reporte && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Total Divisas */}
-              <Card className="shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-xs font-bold text-blue-900 mb-1">💵 TOTAL CAJA USD</p>
-                      <h3 className="text-2xl font-bold text-blue-700">
-                        ${reporte.resumen.neto_divisas.toFixed(2)}
-                      </h3>
-                      <div className="text-xs text-blue-600 mt-2 space-y-0.5">
-                        <p>📥 Ventas: ${reporte.resumen.total_divisas.toFixed(2)}</p>
-                        <p>📤 Gastos: ${reporte.resumen.gastos_divisas.toFixed(2)}</p>
-                      </div>
-                    </div>
-                    <DollarSign className="w-8 h-8 text-blue-600" />
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.05))', border: '1px solid rgba(16,185,129,0.2)' }}>
+                <div className="absolute top-0 right-0 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+                <p className="text-emerald-400/70 text-xs font-bold uppercase tracking-wider">💵 TOTAL CAJA USD</p>
+                <p className={`text-3xl font-black mt-1 ${reporte.resumen.neto_divisas >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>${reporte.resumen.neto_divisas.toFixed(2)}</p>
+                <div className="flex gap-4 mt-3 text-xs">
+                  <span className="text-emerald-300/60">▲ ${reporte.resumen.total_divisas.toFixed(2)}</span>
+                  <span className="text-red-300/60">▼ ${reporte.resumen.gastos_divisas.toFixed(2)}</span>
+                </div>
+              </div>
 
               {/* Total Bolívares */}
-              <Card className="shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-xs font-bold text-green-900 mb-1">💳 TOTAL BANCO BS</p>
-                      <h3 className="text-2xl font-bold text-green-700">
-                        Bs {reporte.resumen.neto_bolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
-                      </h3>
-                      <div className="text-xs text-green-600 mt-2 space-y-0.5">
-                        <p>📥 Ventas: Bs {reporte.resumen.total_bolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
-                        <p>📤 Gastos: Bs {reporte.resumen.gastos_bolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
-                      </div>
-                    </div>
-                    <CreditCard className="w-8 h-8 text-green-600" />
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.05))', border: '1px solid rgba(245,158,11,0.2)' }}>
+                <div className="absolute top-0 right-0 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+                <p className="text-amber-400/70 text-xs font-bold uppercase tracking-wider">💳 TOTAL BANCO BS</p>
+                <p className={`text-3xl font-black mt-1 ${reporte.resumen.neto_bolivares >= 0 ? 'text-amber-400' : 'text-red-400'}`}>Bs {reporte.resumen.neto_bolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                <div className="flex gap-4 mt-3 text-xs">
+                  <span className="text-amber-300/60">▲ Bs {reporte.resumen.total_bolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-red-300/60">▼ Bs {reporte.resumen.gastos_bolivares.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
 
               {/* Comandas */}
-              <Card className="shadow-lg bg-gradient-to-br from-amber-50 to-orange-50">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">🍽️ Comandas</p>
-                      <h3 className="text-2xl font-bold text-amber-600">
-                        {reporte.resumen.cantidad_comandas || 0}
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-1">
-                        comandas pagadas
-                      </p>
-                    </div>
-                    <ChefHat className="w-8 h-8 text-amber-600" />
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="rounded-2xl p-5 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(79,70,229,0.05))', border: '1px solid rgba(99,102,241,0.2)' }}>
+                <div className="absolute top-0 right-0 w-32 h-32 rounded-full" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
+                <p className="text-indigo-400/70 text-xs font-bold uppercase tracking-wider">🍽️ Comandas</p>
+                <p className="text-3xl font-black mt-1 text-indigo-400">{reporte.resumen.cantidad_comandas || 0}</p>
+                <p className="text-xs text-indigo-300/60 mt-3">comandas pagadas</p>
+              </div>
             </div>
 
             {/* Tabs para detalles */}
             <Tabs defaultValue="metodos" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="metodos">💳 Métodos</TabsTrigger>
-                <TabsTrigger value="comandas">🍽️ Comandas</TabsTrigger>
-                <TabsTrigger value="gastos">💸 Gastos</TabsTrigger>
-                <TabsTrigger value="detalle">📋 Detalle</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 bg-transparent p-1">
+                <TabsTrigger value="metodos" className="text-xs sm:text-sm data-[state=active]:bg-violet-500/20 data-[state=active]:text-violet-300 text-slate-400 rounded-xl">💳 Métodos</TabsTrigger>
+                <TabsTrigger value="comandas" className="text-xs sm:text-sm data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-300 text-slate-400 rounded-xl">🍽️ Comandas</TabsTrigger>
+                <TabsTrigger value="gastos" className="text-xs sm:text-sm data-[state=active]:bg-red-500/20 data-[state=active]:text-red-300 text-slate-400 rounded-xl">💸 Gastos</TabsTrigger>
+                <TabsTrigger value="detalle" className="text-xs sm:text-sm data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-300 text-slate-400 rounded-xl">📋 Detalle</TabsTrigger>
               </TabsList>
 
               {/* Tab Métodos de Pago */}
@@ -624,8 +644,17 @@ export default function ReportesDiarios() {
                                     <Badge className="bg-red-200 text-red-800">{data.cantidad}</Badge>
                                   </div>
                                   <div className="text-right">
-                                    <p className="text-2xl font-bold text-red-600">${data.total_usd.toFixed(2)}</p>
-                                    <p className="text-xs text-gray-500 mt-1">Dólares</p>
+                                    {metodosBolivares(metodo) ? (
+                                      <>
+                                        <p className="text-2xl font-bold text-red-600">Bs {(data.total_bs || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                                        <p className="text-xs text-gray-500 mt-1">Bolívares</p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="text-2xl font-bold text-red-600">${data.total_usd.toFixed(2)}</p>
+                                        <p className="text-xs text-gray-500 mt-1">Dólares</p>
+                                      </>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -655,25 +684,34 @@ export default function ReportesDiarios() {
                           ...Object.keys(reporte.gastos.por_metodo)
                         ]);
                         return [...todosMetodos].map(metodo => {
-                          const ventas = reporte.ventas.por_metodo[metodo]?.total || 0;
-                          const gastos = reporte.gastos.por_metodo[metodo]?.total_usd || 0;
+                          const esBs = metodosBolivares(metodo);
+                          const ventas = esBs 
+                            ? (reporte.ventas.por_metodo[metodo]?.total_ves || reporte.ventas.por_metodo[metodo]?.total || 0)
+                            : (reporte.ventas.por_metodo[metodo]?.total || 0);
+                          const gastos = esBs
+                            ? (reporte.gastos.por_metodo[metodo]?.total_bs || 0)
+                            : (reporte.gastos.por_metodo[metodo]?.total_usd || 0);
                           const neto = ventas - gastos;
+                          const simbolo = esBs ? 'Bs' : '$';
+                          const formatVal = (v) => esBs 
+                            ? `Bs ${v.toLocaleString('es-VE', { minimumFractionDigits: 2 })}` 
+                            : `$${v.toFixed(2)}`;
                           return (
                             <div key={metodo} className={`p-4 rounded-lg border-2 ${neto >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                               <p className="text-sm font-medium text-gray-700">{metodosConfig[metodo]?.label || metodo}</p>
                               <div className="mt-2 space-y-1 text-xs">
                                 <div className="flex justify-between">
                                   <span className="text-gray-500">📥 Ventas:</span>
-                                  <span className="text-green-600 font-medium">${ventas.toFixed(2)}</span>
+                                  <span className="text-green-600 font-medium">{formatVal(ventas)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-500">📤 Gastos:</span>
-                                  <span className="text-red-600 font-medium">${gastos.toFixed(2)}</span>
+                                  <span className="text-red-600 font-medium">{formatVal(gastos)}</span>
                                 </div>
                                 <div className="flex justify-between pt-1 border-t">
                                   <span className="font-semibold">💰 Neto:</span>
                                   <span className={`font-bold ${neto >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                                    ${neto.toFixed(2)}
+                                    {formatVal(neto)}
                                   </span>
                                 </div>
                               </div>
@@ -776,7 +814,8 @@ export default function ReportesDiarios() {
                                   <Badge className="bg-red-200 text-red-800">{data.cantidad}</Badge>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-2xl font-bold text-red-600">${data.total_usd.toFixed(2)}</p>
+                                  {data.total_usd > 0 && <p className="text-xl font-bold text-red-600">${data.total_usd.toFixed(2)}</p>}
+                                  {data.total_bs > 0 && <p className="text-xl font-bold text-red-600">Bs {data.total_bs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>}
                                 </div>
                               </div>
                             </div>
@@ -812,7 +851,10 @@ export default function ReportesDiarios() {
                                   </div>
                                 </div>
                                 <span className="font-bold text-red-600">
-                                  ${gasto.monto.toFixed(2)}
+                                  {metodosBolivares(gasto.metodo_pago)
+                                    ? `Bs ${(gasto.monto_original || gasto.monto || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                                    : `$${(gasto.monto || 0).toFixed(2)}`
+                                  }
                                 </span>
                               </div>
                               {gasto.comprobante && (

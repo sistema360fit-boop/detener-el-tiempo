@@ -20,6 +20,7 @@ export default function AdelantosList({ adelantos, onEdit, onDelete, onMarcarDes
     pago_movil_bs: "Pago Móvil",
     binance_usd: "Binance",
     zinli_usd: "Zinli",
+    efectivo_cop: "Efectivo COP",
     nequi_cop: "Nequi",
     paypal_usd: "PayPal",
     zelle_usd: "Zelle"
@@ -41,10 +42,17 @@ export default function AdelantosList({ adelantos, onEdit, onDelete, onMarcarDes
                 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
                   <div>
-                    <span className="font-medium">Monto:</span> ${adelanto.monto.toFixed(2)}
+                    <span className="font-medium">Monto:</span>{' '}
+                    {adelanto.moneda_original === 'BS' ? (
+                      `Bs ${(adelanto.monto_original ?? 0).toFixed(2)} ($${(adelanto.monto ?? 0).toFixed(2)})`
+                    ) : adelanto.moneda_original === 'COP' ? (
+                      `COP ${(adelanto.monto_original ?? 0).toFixed(2)} ($${(adelanto.monto ?? 0).toFixed(2)})`
+                    ) : (
+                      `$${(adelanto.monto ?? 0).toFixed(2)}`
+                    )}
                   </div>
                   <div>
-                    <span className="font-medium">Método:</span> {metodosLabels[adelanto.metodo_pago]}
+                    <span className="font-medium">Método:</span> {metodosLabels[adelanto.metodo_pago] || adelanto.metodo_pago || 'N/A'}
                   </div>
                   <div>
                     <span className="font-medium">Fecha:</span> {format(new Date(adelanto.fecha_adelanto), "dd/MM/yyyy", { locale: es })}

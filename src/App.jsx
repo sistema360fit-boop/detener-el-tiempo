@@ -56,7 +56,7 @@ import Comandas from "./pages/Comandas";
 import ProcesarVenta from "./pages/ProcesarVenta";
 import Ingredientes from "./pages/Ingredientes";
 import Gastos from "./pages/Gastos";
-import Empleados from "./pages/Empleados";
+
 import Adelantos from './pages/Adelantos';
 import AdminReset from './pages/AdminReset';
 import Alertas from './pages/Alertas';
@@ -65,17 +65,13 @@ import Cocina from './pages/Cocina';
 import ComprasIngredientes from './pages/ComprasIngredientes';
 import ConfiguracionRetencion from './pages/ConfiguracionRetencion';
 import CuentasPorCobrar from './pages/CuentasPorCobrar';
-import DiagnosticoCompleto from './pages/DiagnosticoCompleto';
 import EstadoCuentaDetalle from './pages/EstadoCuentaDetalle';
 import EstadosCuenta from './pages/EstadosCuenta';
 import GestionTasas from './pages/GestionTasas';
-import HerramientaManual from './pages/HerramientaManual';
 import Home from './pages/Home';
 import ImprimirComanda from './pages/ImprimirComanda';
-import InvitarNestor from './pages/InvitarNestor';
 import RecetasPrimarias from './pages/RecetasPrimarias';
 import RecetasSecundarias from './pages/RecetasSecundarias';
-import ReparadorCOP from './pages/ReparadorCOP';
 import ReporteDetalle from './pages/ReporteDetalle';
 import ReporteEntradaSalidaDetalle from './pages/ReporteEntradaSalidaDetalle';
 import ReporteMensual from './pages/ReporteMensual';
@@ -83,7 +79,7 @@ import Reportes from './pages/Reportes';
 import ReportesDiarios from './pages/ReportesDiarios';
 import ReportesEntradaSalida from './pages/ReportesEntradaSalida';
 import ReportesMetodosPago from './pages/ReportesMetodosPago';
-import SolucionManual from './pages/SolucionManual';
+import Personal from './pages/Personal';
 
 // --- COMPONENTE DE DISEÑO PROTEGIDO ---
 const ProtectedLayout = ({ children }) => {
@@ -128,7 +124,7 @@ const ProtectedLayout = ({ children }) => {
 function App() {
   return (
     <ErrorBoundary>
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       {/* Notificaciones globales */}
       <Toaster position="top-right" richColors closeButton />
       
@@ -144,7 +140,7 @@ function App() {
         <Route path="/platos" element={<RoleProtectedRoute pageName="Platos"><ProtectedLayout><Platos /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/ingredientes" element={<RoleProtectedRoute pageName="Ingredientes"><ProtectedLayout><Ingredientes /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/gastos" element={<RoleProtectedRoute pageName="Gastos"><ProtectedLayout><Gastos /></ProtectedLayout></RoleProtectedRoute>} />
-        <Route path="/empleados" element={<RoleProtectedRoute pageName="Empleados"><ProtectedLayout><Empleados /></ProtectedLayout></RoleProtectedRoute>} />
+
         <Route path="/adelantos" element={<RoleProtectedRoute pageName="Adelantos"><ProtectedLayout><Adelantos /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/recetas-primarias" element={<RoleProtectedRoute pageName="RecetasPrimarias"><ProtectedLayout><RecetasPrimarias /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/recetas-secundarias" element={<RoleProtectedRoute pageName="RecetasSecundarias"><ProtectedLayout><RecetasSecundarias /></ProtectedLayout></RoleProtectedRoute>} />
@@ -160,19 +156,15 @@ function App() {
         <Route path="/alertas" element={<RoleProtectedRoute pageName="Alertas"><ProtectedLayout><Alertas /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/gestion-tasas" element={<RoleProtectedRoute pageName="GestionTasas"><ProtectedLayout><GestionTasas /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/configuracion-retencion" element={<RoleProtectedRoute pageName="ConfiguracionRetencion"><ProtectedLayout><ConfiguracionRetencion /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/personal" element={<RoleProtectedRoute pageName="Personal"><ProtectedLayout><Personal /></ProtectedLayout></RoleProtectedRoute>} />
         {/* Rutas sin sidebar */}
         <Route path="/admin-reset" element={<RoleProtectedRoute pageName="AdminReset"><ProtectedLayout><AdminReset /></ProtectedLayout></RoleProtectedRoute>} />
-        <Route path="/diagnostico-completo" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><DiagnosticoCompleto /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/estado-cuenta-detalle" element={<RoleProtectedRoute pageName="EstadoCuentaDetalle"><ProtectedLayout><EstadoCuentaDetalle /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/estados-cuenta" element={<RoleProtectedRoute pageName="EstadosCuenta"><ProtectedLayout><EstadosCuenta /></ProtectedLayout></RoleProtectedRoute>} />
-        <Route path="/herramienta-manual" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><HerramientaManual /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/home" element={<RoleProtectedRoute pageName="Home"><ProtectedLayout><Home /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/imprimir-comanda" element={<RoleProtectedRoute pageName="Comandas"><ProtectedLayout><ImprimirComanda /></ProtectedLayout></RoleProtectedRoute>} />
-        <Route path="/invitar-nestor" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><InvitarNestor /></ProtectedLayout></RoleProtectedRoute>} />
-        <Route path="/reparador-cop" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><ReparadorCOP /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/reporte-detalle" element={<RoleProtectedRoute pageName="Reportes"><ProtectedLayout><ReporteDetalle /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/reporte-entrada-salida-detalle" element={<RoleProtectedRoute pageName="Reportes"><ProtectedLayout><ReporteEntradaSalidaDetalle /></ProtectedLayout></RoleProtectedRoute>} />
-        <Route path="/solucion-manual" element={<RoleProtectedRoute pageName="Dashboard"><ProtectedLayout><SolucionManual /></ProtectedLayout></RoleProtectedRoute>} />
 
         {/* Si no encuentra la ruta, vuelve al acceso */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -15,7 +15,8 @@ const metodosPago = {
     { value: "zelle_usd", label: "🏦 Zelle" }
   ],
   cop: [
-    { value: "nequi_cop", label: "📱 Nequi" }
+    { value: "nequi_cop", label: "📱 Nequi" },
+    { value: "efectivo_cop", label: "💵 Efectivo COP" }
   ],
   ves: [
     { value: "tarjeta_bs", label: "💳 Tarjeta Bs" },

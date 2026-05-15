@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +49,9 @@ export default function ModalEditarIngrediente({ ingrediente, onConfirm, onCance
               <div>
                 <DialogTitle className="text-2xl font-bold text-white">Editar Ingrediente</DialogTitle>
                 <p className="text-blue-100 text-sm mt-1">{ingrediente?.nombre}</p>
+                <DialogDescription className="text-blue-200 text-xs mt-1">
+                  Modifique los datos del ingrediente y guarde los cambios
+                </DialogDescription>
               </div>
             </div>
             <Badge className="bg-white/20 text-white border-none">

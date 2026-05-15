@@ -50,7 +50,7 @@ export default function ReporteVentas({ ventas, isLoading }) {
                       <Badge variant="outline">{venta.metodo_pago}</Badge>
                     </TableCell>
                     <TableCell className="font-semibold text-green-600">
-                      ${venta.total_venta.toFixed(2)}
+                      ${(venta.total_venta ?? 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="font-semibold text-blue-600">
                       ${(venta.ganancia || 0).toFixed(2)}

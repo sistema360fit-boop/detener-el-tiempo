@@ -105,7 +105,7 @@ export default function ComandasList({ comandas, detalles, onVerDetalle, isLoadi
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700">Total:</span>
                   <span className="text-xl sm:text-2xl font-bold text-amber-600">
-                    ${comanda.total_comanda.toFixed(2)}
+                    ${(comanda.total_comanda ?? 0).toFixed(2)}
                   </span>
                 </div>
               </div>
