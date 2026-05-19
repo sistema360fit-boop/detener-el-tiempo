@@ -40,7 +40,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 // Seguridad
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "img-src": ["'self'", "data:", "blob:", "https://base44.com"],
+    },
+  },
+}));
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || '*', // En producción especificar dominios
   credentials: true

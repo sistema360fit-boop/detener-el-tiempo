@@ -53,7 +53,10 @@ router.post('/', requireAdmin, async (req, res) => {
         platoId: d.plato_id || d.platoId || null,
         platoNombre: d.plato_nombre || d.platoNombre || null,
         cantidad: d.cantidad,
-        precio: d.precio_unitario || d.precio || 0
+        precio: d.precio_unitario || d.precio || 0,
+        estado_plato: d.estado_plato || 'pendiente',
+        notas_plato: d.notas_plato || d.notas || null,
+        variante: d.variante || null
       }));
       
       const { data: det, error: detError } = await supabase
@@ -215,7 +218,10 @@ router.put('/:id', requireAdmin, async (req, res) => {
         platoId: d.platoId || d.plato_id,
         platoNombre: d.platoNombre || d.plato_nombre,
         cantidad: d.cantidad,
-        precio: d.precio || d.precio_unitario || 0
+        precio: d.precio || d.precio_unitario || 0,
+        estado_plato: d.estado_plato || 'pendiente',
+        notas_plato: d.notas_plato || d.notas || null,
+        variante: d.variante || null
       }));
       await supabase.from('DetalleComanda').insert(detallesData);
     }

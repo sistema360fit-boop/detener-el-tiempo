@@ -95,6 +95,9 @@ model DetalleComanda {
   platoNombre String?
   cantidad    Float
   precio      Float
+  estado_plato String @default("pendiente")
+  notas_plato  String?
+  variante     String?
 }
 
 model Adelanto {
