@@ -838,6 +838,19 @@ export const api = {
               return normalizeFromServer(entity, result);
             }
             
+            // Manejo especial para DetalleComanda
+            if (entity === 'DetalleComanda') {
+              const result = await serverFetch(`/comandas/detalles/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                  estado_plato: normalized.estado_plato,
+                  notas_plato: normalized.notas_plato,
+                  cantidad: normalized.cantidad
+                })
+              });
+              return normalizeFromServer(entity, result);
+            }
+            
             // Usar endpoint directo para otras entidades
             const result = await serverFetch(`${endpointMap[entity] || `/${entity.toLowerCase()}s`}/${id}`, {
               method: 'PUT',
