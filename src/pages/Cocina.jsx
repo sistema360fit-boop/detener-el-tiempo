@@ -95,6 +95,7 @@ export default function Cocina() {
   const queryClient = useQueryClient();
   const [comandasAgrupadas, setComandasAgrupadas] = useState([]);
   const [comandasListasAgrupadas, setComandasListasAgrupadas] = useState([]);
+  const [activeTab, setActiveTab] = useState("pendientes");
   const [sonidoActivo, setSonidoActivo] = useState(true);
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
   const [flashId, setFlashId] = useState(null); // Para animación de nueva comanda
@@ -236,6 +237,7 @@ export default function Cocina() {
       await Promise.all(promesas);
       toast.success("✅ Comanda completa despachada");
       queryClient.invalidateQueries({ queryKey: ['detalles-comandas-cocina'] });
+      setActiveTab("listas");
     } catch {
       toast.error("Error al despachar comanda");
     }
@@ -302,7 +304,7 @@ export default function Cocina() {
         </div>
 
         {/* Contenedor de Tabs */}
-        <Tabs defaultValue="pendientes" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-slate-900 border border-slate-800 p-1 rounded-xl flex max-w-sm mx-auto">
             <TabsTrigger value="pendientes" className="flex-1 rounded-lg data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:font-black text-slate-400">
               En Preparación ({comandasAgrupadas.length})
