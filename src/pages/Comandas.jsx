@@ -282,92 +282,106 @@ export default function Comandas() {
   const platosActivos = platos.filter(p => p.activo);
 
   return (
-    <div className="p-4 md:p-8 min-h-screen">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2 sm:gap-3">
-              <Receipt className="w-6 h-6 sm:w-8 sm:h-8 text-amber-600 flex-shrink-0" />
-              <span className="leading-tight">Comandas</span>
+    <div className="p-4 md:p-8 min-h-screen bg-slate-50/50 font-sans">
+      <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        
+        {/* Header Elegante */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl font-black text-slate-900 flex items-center gap-4 tracking-tight">
+              <div className="p-3 bg-amber-500 rounded-2xl shadow-lg shadow-amber-200">
+                <Receipt className="w-8 h-8 text-white" />
+              </div>
+              Control de Comandas
             </h1>
-            <p className="text-sm sm:text-base text-gray-500 mt-1">
-              Gestiona las comandas del restaurante
-            </p>
+            <p className="text-slate-500 font-medium ml-1">Administración, facturación y seguimiento en tiempo real</p>
           </div>
           <Button
             onClick={() => setShowForm(!showForm)}
-            className="bg-amber-600 hover:bg-amber-700 w-full sm:w-auto"
+            className="bg-amber-600 hover:bg-amber-700 text-white rounded-2xl h-14 px-6 text-base font-bold shadow-lg shadow-amber-200/50 hover:scale-[1.02] active:scale-95 transition-all w-full sm:w-auto"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-5 h-5 mr-2" />
             Nueva Comanda
           </Button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-500 mb-1">Abiertas</p>
-                  <h3 className="text-2xl sm:text-3xl font-bold text-green-600">{comandasAbiertas}</h3>
-                </div>
-                <div className="p-2 sm:p-3 rounded-xl bg-green-100 flex-shrink-0">
-                  <Receipt className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                </div>
+        {/* Stats Modernos */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <Card className="border-0 shadow-xl shadow-slate-200/50 rounded-[2rem] overflow-hidden bg-white hover:shadow-2xl hover:shadow-green-200/40 transition-all duration-500 relative group">
+            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500 pointer-events-none">
+              <Receipt className="w-24 h-24 text-green-600" />
+            </div>
+            <CardContent className="p-8 flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Comandas Abiertas</p>
+                <h3 className="text-4xl font-black text-green-600 tracking-tight">{comandasAbiertas}</h3>
+              </div>
+              <div className="p-4 rounded-2xl bg-green-50 text-green-600">
+                <Receipt className="w-8 h-8" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg border-none">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-500 mb-1">Pagadas</p>
-                  <h3 className="text-2xl sm:text-3xl font-bold text-blue-600">{comandasPagadas}</h3>
-                </div>
-                <div className="p-2 sm:p-3 rounded-xl bg-blue-100 flex-shrink-0">
-                  <Receipt className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-                </div>
+          <Card className="border-0 shadow-xl shadow-slate-200/50 rounded-[2rem] overflow-hidden bg-white hover:shadow-2xl hover:shadow-blue-200/40 transition-all duration-500 relative group">
+            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500 pointer-events-none">
+              <Receipt className="w-24 h-24 text-blue-600" />
+            </div>
+            <CardContent className="p-8 flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Comandas Pagadas</p>
+                <h3 className="text-4xl font-black text-blue-600 tracking-tight">{comandasPagadas}</h3>
+              </div>
+              <div className="p-4 rounded-2xl bg-blue-50 text-blue-600">
+                <Receipt className="w-8 h-8" />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search and Filter */}
-        <Card className="shadow-lg border-none">
-          <CardContent className="p-4 sm:p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                <Input
-                  placeholder="Buscar por número, mesa o mesero..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 sm:pl-10 text-sm sm:text-base"
-                />
+        {/* Búsqueda y Filtros Elegantes */}
+        <Card className="border-0 shadow-xl shadow-slate-200/50 rounded-[2rem] bg-white overflow-hidden">
+          <CardContent className="p-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Búsqueda rápida</label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input
+                    placeholder="Buscar por número, mesa o mesero..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-12 h-14 bg-slate-50 border-none rounded-2xl text-sm font-semibold focus-visible:ring-amber-500"
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                <Input
-                  type="date"
-                  value={fechaFiltro}
-                  onChange={(e) => setFechaFiltro(e.target.value)}
-                  className="flex-1 text-sm sm:text-base"
-                />
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Fecha de Comanda</label>
+                <div className="relative flex items-center">
+                  <Calendar className="absolute left-4 w-5 h-5 text-slate-400 pointer-events-none" />
+                  <Input
+                    type="date"
+                    value={fechaFiltro}
+                    onChange={(e) => setFechaFiltro(e.target.value)}
+                    className="pl-12 h-14 bg-slate-50 border-none rounded-2xl text-sm font-semibold focus-visible:ring-amber-500"
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                <select
-                  value={estadoFiltro}
-                  onChange={(e) => setEstadoFiltro(e.target.value)}
-                  className="flex-1 px-3 py-2 border rounded-md text-sm sm:text-base"
-                >
-                  <option value="abierta">Comandas Abiertas</option>
-                  <option value="pagada">Comandas Pagadas</option>
-                  <option value="todas">Todas las Comandas</option>
-                </select>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Estado</label>
+                <div className="relative">
+                  <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                  <select
+                    value={estadoFiltro}
+                    onChange={(e) => setEstadoFiltro(e.target.value)}
+                    className="w-full pl-12 pr-4 h-14 bg-slate-50 border-none rounded-2xl text-sm font-semibold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  >
+                    <option value="abierta">Comandas Abiertas</option>
+                    <option value="pagada">Comandas Pagadas</option>
+                    <option value="todas">Todas las Comandas</option>
+                  </select>
+                </div>
               </div>
             </div>
           </CardContent>

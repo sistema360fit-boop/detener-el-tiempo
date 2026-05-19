@@ -102,66 +102,70 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
   const total = platosAgregados.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
 
   return (
-    <Card className="shadow-lg border-none">
-      <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 sm:p-6">
-        <CardTitle className="text-base sm:text-xl flex items-center gap-2">
-          <Receipt className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
+    <Card className="border-0 shadow-xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden bg-white">
+      <CardHeader className="bg-gradient-to-br from-slate-50 to-amber-50/10 p-8 border-b border-slate-100">
+        <CardTitle className="text-2xl font-black text-slate-800 flex items-center gap-3">
+          <Receipt className="w-6 h-6 text-amber-500 flex-shrink-0" />
           <span>Nueva Comanda</span>
         </CardTitle>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="p-4 sm:p-6 space-y-6">
+        <CardContent className="p-8 space-y-8">
           {/* Información de la Mesa */}
           <div className="space-y-4">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 border-b pb-2">
-              📍 Información de la Mesa
+            <h3 className="text-lg font-black text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <span>📍</span> Información de la Mesa
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="mesa">Número de Mesa *</Label>
+                <Label htmlFor="mesa" className="text-xs font-bold uppercase tracking-wider text-slate-400">Número de Mesa *</Label>
                 <Input
                   id="mesa"
                   value={mesaNumero}
                   onChange={(e) => setMesaNumero(e.target.value)}
                   placeholder="Ej: Mesa 5 o M-5"
                   required
+                  className="h-14 bg-slate-50 border-none rounded-2xl text-sm font-semibold focus-visible:ring-amber-500"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="notas">Notas Generales</Label>
+                <Label htmlFor="notas" className="text-xs font-bold uppercase tracking-wider text-slate-400">Notas Generales</Label>
                 <Textarea
                   id="notas"
                   value={notas}
                   onChange={(e) => setNotas(e.target.value)}
-                  placeholder="Notas opcionales"
+                  placeholder="Notas opcionales para la comanda"
                   rows={2}
+                  className="bg-slate-50 border-none rounded-2xl text-sm font-semibold focus-visible:ring-amber-500 p-4 resize-none"
                 />
               </div>
             </div>
           </div>
 
           {/* Agregar Platos */}
-          <div className="space-y-4 border-t pt-6">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 border-b pb-2">
-              🍽️ Agregar Platos a la Comanda
+          <div className="space-y-6 border-t border-slate-100 pt-8">
+            <h3 className="text-lg font-black text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <span>🍽️</span> Agregar Platos a la Comanda
             </h3>
             
-            <Card className="bg-blue-50 border-blue-200">
-              <CardContent className="p-3 sm:p-4 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                  <div className="sm:col-span-5 space-y-2">
-                    <Label htmlFor="plato">Plato</Label>
+            <Card className="border-0 bg-amber-50/20 rounded-[2rem] overflow-hidden">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+                  <div className="md:col-span-5 space-y-2">
+                    <Label htmlFor="plato" className="text-xs font-bold uppercase tracking-wider text-slate-400">Plato</Label>
                     <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
                           role="combobox"
                           aria-expanded={openCombobox}
-                          className="w-full justify-between bg-white"
+                          className="w-full h-14 justify-between bg-white border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 shadow-sm"
                         >
-                          {platoSeleccionado
-                            ? platos.find((plato) => plato.id === platoSeleccionado)?.nombre
-                            : "Buscar y seleccionar plato..."}
+                          <span className="truncate">
+                            {platoSeleccionado
+                              ? platos.find((plato) => plato.id === platoSeleccionado)?.nombre
+                              : "Buscar y seleccionar plato..."}
+                          </span>
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
@@ -180,18 +184,19 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                                     setVarianteSeleccionada(plato.tiene_piezas ? "12" : "normal");
                                     setOpenCombobox(false);
                                   }}
+                                  className="py-3 px-4 font-semibold text-slate-700 cursor-pointer"
                                 >
                                   <Check
                                     className={cn(
-                                      "mr-2 h-4 w-4",
+                                      "mr-2 h-4 w-4 text-amber-500",
                                       platoSeleccionado === plato.id ? "opacity-100" : "opacity-0"
                                     )}
                                   />
-                                  {plato.nombre}
+                                  <span className="flex-1">{plato.nombre}</span>
                                   {plato.tiene_piezas ? (
-                                    <span className="ml-2 text-xs text-blue-600">(Por piezas)</span>
+                                    <Badge className="ml-2 bg-blue-50 text-blue-700 hover:bg-blue-50 border-0 font-bold">Por piezas</Badge>
                                   ) : (
-                                    ` - ${(plato.precio ?? 0).toFixed(2)}`
+                                    <span className="font-extrabold text-amber-600">${(plato.precio ?? 0).toFixed(2)}</span>
                                   )}
                                 </CommandItem>
                               ))}
@@ -203,13 +208,16 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                     
                     {/* Selector de Variante si aplica */}
                     {platoSeleccionado && platos.find(p => p.id === platoSeleccionado)?.tiene_piezas && (
-                      <div className="mt-2 flex gap-2">
+                      <div className="mt-3 flex gap-2">
                         <Button
                           type="button"
                           variant={varianteSeleccionada === "6" ? "default" : "outline"}
                           size="sm"
                           onClick={() => setVarianteSeleccionada("6")}
-                          className={varianteSeleccionada === "6" ? "bg-blue-600" : ""}
+                          className={cn(
+                            "rounded-xl font-bold h-10 px-4",
+                            varianteSeleccionada === "6" ? "bg-amber-600 hover:bg-amber-700 text-white" : "border-slate-200"
+                          )}
                         >
                           6 Piezas (${(platos.find(p => p.id === platoSeleccionado)?.precio_6 ?? 0).toFixed(2)})
                         </Button>
@@ -218,7 +226,10 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                           variant={varianteSeleccionada === "12" ? "default" : "outline"}
                           size="sm"
                           onClick={() => setVarianteSeleccionada("12")}
-                          className={varianteSeleccionada === "12" ? "bg-blue-600" : ""}
+                          className={cn(
+                            "rounded-xl font-bold h-10 px-4",
+                            varianteSeleccionada === "12" ? "bg-amber-600 hover:bg-amber-700 text-white" : "border-slate-200"
+                          )}
                         >
                           12 Piezas (${(platos.find(p => p.id === platoSeleccionado)?.precio_12 ?? 0).toFixed(2)})
                         </Button>
@@ -226,34 +237,36 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                     )}
                   </div>
 
-                  <div className="sm:col-span-2 space-y-2">
-                    <Label htmlFor="cantidad">Cantidad</Label>
+                  <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor="cantidad" className="text-xs font-bold uppercase tracking-wider text-slate-400">Cantidad</Label>
                     <Input
                       id="cantidad"
                       type="number"
                       min="1"
                       value={cantidad}
                       onChange={(e) => setCantidad(e.target.value)}
+                      className="h-14 bg-white border-slate-200 rounded-2xl text-sm font-semibold text-center focus-visible:ring-amber-500"
                     />
                   </div>
 
-                  <div className="sm:col-span-3 space-y-2">
-                    <Label htmlFor="notasPlato">Notas del Plato</Label>
+                  <div className="md:col-span-3 space-y-2">
+                    <Label htmlFor="notasPlato" className="text-xs font-bold uppercase tracking-wider text-slate-400">Notas del Plato</Label>
                     <Input
                       id="notasPlato"
                       value={notasPlato}
                       onChange={(e) => setNotasPlato(e.target.value)}
-                      placeholder="Sin cebolla..."
+                      placeholder="Sin cebolla, bien cocido..."
+                      className="h-14 bg-white border-slate-200 rounded-2xl text-sm font-semibold focus-visible:ring-amber-500"
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
+                  <div className="md:col-span-2">
                     <Button
                       type="button"
                       onClick={handleAgregarPlato}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      className="w-full h-14 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-bold shadow-lg shadow-amber-200/50 hover:scale-[1.02] active:scale-95 transition-all"
                     >
-                      <Plus className="w-4 h-4 mr-2" />
+                      <Plus className="w-5 h-5 mr-2" />
                       Agregar
                     </Button>
                   </div>
@@ -262,10 +275,10 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
             </Card>
 
             {/* Lista de Platos Agregados */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium text-gray-700 text-sm sm:text-base">Platos en la Comanda</h4>
-                <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-black text-slate-700 text-sm sm:text-base">Platos en la Comanda</h4>
+                <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-bold px-3 py-1 rounded-full">
                   {platosAgregados.length} {platosAgregados.length === 1 ? 'plato' : 'platos'}
                 </Badge>
               </div>
@@ -275,12 +288,12 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                   {/* Vista móvil */}
                   <div className="block md:hidden space-y-3">
                     {platosAgregados.map((plato, index) => (
-                      <div key={index} className="bg-white border rounded-lg p-3 space-y-2">
+                      <div key={index} className="bg-slate-50/50 border border-slate-100 rounded-2xl p-4 space-y-3">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
-                            <h5 className="font-medium text-gray-900 text-sm truncate">{plato.nombre}</h5>
+                            <h5 className="font-bold text-slate-800 text-sm truncate">{plato.nombre}</h5>
                             {plato.notas && (
-                              <p className="text-xs text-gray-500 italic mt-1">"{plato.notas}"</p>
+                              <p className="text-xs text-amber-700 font-medium italic mt-1.5 bg-amber-50/50 p-2 rounded-xl border-l-2 border-amber-400">"{plato.notas}"</p>
                             )}
                           </div>
                           <Button
@@ -288,51 +301,53 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleEliminarPlato(index)}
-                            className="hover:bg-red-50 hover:text-red-600 flex-shrink-0"
+                            className="hover:bg-red-50 hover:text-red-600 rounded-xl flex-shrink-0"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-600">${(plato.cantidad ?? 0)}x ${(plato.precio ?? 0).toFixed(2)}</span>
-                          <span className="font-bold text-amber-600">${((plato.precio ?? 0) * (plato.cantidad ?? 0)).toFixed(2)}</span>
+                        <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-100">
+                          <span className="text-slate-500 font-medium">${(plato.cantidad ?? 0)}x ${(plato.precio ?? 0).toFixed(2)}</span>
+                          <span className="font-black text-amber-600">${((plato.precio ?? 0) * (plato.cantidad ?? 0)).toFixed(2)}</span>
                         </div>
                       </div>
                     ))}
                   </div>
 
                   {/* Vista desktop */}
-                  <div className="hidden md:block border rounded-lg overflow-hidden">
+                  <div className="hidden md:block border border-slate-100 rounded-[2rem] overflow-hidden bg-slate-50/30">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-gray-50">
-                          <TableHead>Plato</TableHead>
-                          <TableHead>Precio</TableHead>
-                          <TableHead>Cantidad</TableHead>
-                          <TableHead>Notas</TableHead>
-                          <TableHead className="text-right">Subtotal</TableHead>
-                          <TableHead className="text-right">Acciones</TableHead>
+                        <TableRow className="bg-slate-50 border-b border-slate-100">
+                          <TableHead className="font-bold text-slate-400 py-4 pl-6">Plato</TableHead>
+                          <TableHead className="font-bold text-slate-400 py-4">Precio</TableHead>
+                          <TableHead className="font-bold text-slate-400 py-4">Cantidad</TableHead>
+                          <TableHead className="font-bold text-slate-400 py-4">Notas</TableHead>
+                          <TableHead className="text-right font-bold text-slate-400 py-4">Subtotal</TableHead>
+                          <TableHead className="text-right font-bold text-slate-400 py-4 pr-6">Acciones</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {platosAgregados.map((plato, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{plato.nombre}</TableCell>
-                            <TableCell>${(plato.precio ?? 0).toFixed(2)}</TableCell>
-                            <TableCell className="font-semibold text-amber-600">{plato.cantidad}</TableCell>
-                            <TableCell className="text-sm italic text-gray-500">
-                              {plato.notas || '-'}
+                          <TableRow key={index} className="border-b border-slate-100 hover:bg-slate-100/30 transition-colors">
+                            <TableCell className="font-bold text-slate-800 py-4 pl-6">{plato.nombre}</TableCell>
+                            <TableCell className="font-medium text-slate-500">${(plato.precio ?? 0).toFixed(2)}</TableCell>
+                            <TableCell className="font-extrabold text-amber-600">{plato.cantidad}</TableCell>
+                            <TableCell className="text-sm font-semibold italic text-slate-500">
+                              {plato.notas ? (
+                                <span className="bg-amber-50 text-amber-800 px-3 py-1 rounded-xl text-xs">{plato.notas}</span>
+                              ) : '-'}
                             </TableCell>
-                            <TableCell className="text-right font-bold text-amber-600">
+                            <TableCell className="text-right font-black text-slate-800">
                               ${((plato.precio ?? 0) * (plato.cantidad ?? 0)).toFixed(2)}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right py-4 pr-6">
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleEliminarPlato(index)}
-                                className="hover:bg-red-50 hover:text-red-600"
+                                className="hover:bg-red-50 hover:text-red-600 rounded-xl"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -344,18 +359,21 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
                   </div>
 
                   {/* Total */}
-                  <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-4 border-2 border-amber-200">
-                    <div className="flex justify-between items-center">
-                      <span className="text-base sm:text-lg font-bold text-gray-900">TOTAL DE LA COMANDA:</span>
-                      <span className="text-xl sm:text-2xl font-bold text-amber-600">${(total ?? 0).toFixed(2)}</span>
+                  <div className="mt-4 bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-lg shadow-slate-900/20">
+                    <div className="absolute right-0 top-0 p-8 opacity-5 pointer-events-none">
+                      <Receipt className="w-32 h-32" />
+                    </div>
+                    <div className="flex justify-between items-center relative z-10">
+                      <span className="text-sm font-bold uppercase tracking-wider opacity-60">TOTAL DE LA COMANDA</span>
+                      <span className="text-3xl font-black tracking-tight">${(total ?? 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed">
-                  <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm sm:text-base">No hay platos agregados</p>
-                  <p className="text-xs sm:text-sm text-gray-400 mt-1">
+                <div className="text-center py-16 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200">
+                  <Receipt className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500 font-bold text-lg">No hay platos agregados</p>
+                  <p className="text-slate-400 text-sm mt-1 max-w-xs mx-auto">
                     Selecciona platos del menú para agregarlos a la comanda
                   </p>
                 </div>
@@ -364,23 +382,23 @@ export default function ComandaForm({ platos, onSubmit, onCancel, isLoading }) {
           </div>
         </CardContent>
 
-        <CardFooter className="flex flex-col sm:flex-row justify-end gap-3 bg-gray-50 p-4 sm:p-6">
+        <CardFooter className="flex flex-col sm:flex-row justify-end gap-4 bg-slate-50 p-8 border-t border-slate-100">
           <Button 
             type="button" 
             variant="outline" 
             onClick={onCancel} 
             disabled={isLoading}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto h-14 rounded-2xl px-6 font-bold border-slate-200"
           >
-            <XCircle className="w-4 h-4 mr-2" />
+            <XCircle className="w-5 h-5 mr-2" />
             Cancelar
           </Button>
           <Button 
             type="submit" 
-            className="bg-amber-600 hover:bg-amber-700 w-full sm:w-auto" 
+            className="bg-amber-600 hover:bg-amber-700 text-white rounded-2xl h-14 px-8 font-bold shadow-lg shadow-amber-200/50 hover:scale-[1.02] active:scale-95 transition-all w-full sm:w-auto" 
             disabled={isLoading || platosAgregados.length === 0}
           >
-            <Save className="w-4 h-4 mr-2" />
+            <Save className="w-5 h-5 mr-2" />
             {isLoading ? "Guardando..." : `Crear Comanda - $${total.toFixed(2)}`}
           </Button>
         </CardFooter>

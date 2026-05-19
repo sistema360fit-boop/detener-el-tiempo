@@ -263,12 +263,12 @@ export default function ComandaDetalle({
   const puedeCerrarFactura = esAdministrador || empleado?.rol === 'cajero';
 
   return (
-    <Card className="shadow-lg border-2 border-amber-300">
-      <CardHeader className="bg-gradient-to-r from-amber-100 to-orange-100 p-4 sm:p-6">
+    <Card className="border-0 shadow-2xl rounded-[2.5rem] overflow-hidden bg-white animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <CardHeader className="bg-gradient-to-br from-slate-50 to-amber-50/10 p-8 border-b border-slate-100">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <CardTitle className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Receipt className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" />
-            <span>Comanda {comanda.numero_comanda}</span>
+          <CardTitle className="text-2xl font-black text-slate-800 flex items-center gap-3">
+            <Receipt className="w-6 h-6 text-amber-500 flex-shrink-0" />
+            <span>Detalle de Comanda {comanda.numero_comanda}</span>
           </CardTitle>
           <div className="flex gap-2">
             {esAdministrador && (
@@ -280,7 +280,7 @@ export default function ComandaDetalle({
                     onEliminarComanda(comanda.id);
                   }
                 }}
-                className="hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                className="hover:bg-red-50 hover:text-red-600 hover:border-red-300 rounded-xl"
                 title="Eliminar comanda"
               >
                 <Trash2 className="w-4 h-4" />
@@ -290,32 +290,32 @@ export default function ComandaDetalle({
               variant="ghost" 
               size="icon" 
               onClick={onCerrar}
-              className="self-end sm:self-auto"
+              className="self-end sm:self-auto rounded-xl"
             >
-              <XCircle className="w-5 h-5" />
+              <XCircle className="w-5 h-5 text-slate-400" />
             </Button>
           </div>
         </div>
         
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-          <div>
-            <span className="text-gray-600">Mesa:</span>
-            <span className="ml-2 font-semibold text-gray-900">{comanda.mesa_numero}</span>
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Mesa</span>
+            <span className="font-extrabold text-slate-800 bg-slate-100/50 px-3 py-1 rounded-xl">Mesa {comanda.mesa_numero}</span>
           </div>
-          <div>
-            <span className="text-gray-600">Mesero:</span>
-            <span className="ml-2 font-semibold text-gray-900">{comanda.mesero_nombre}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Mesero</span>
+            <span className="font-semibold text-slate-700 bg-slate-100/50 px-3 py-1 rounded-xl truncate max-w-[180px]">{comanda.mesero_nombre}</span>
           </div>
-          <div>
-            <span className="text-gray-600">Apertura:</span>
-            <span className="ml-2 font-semibold text-gray-900">
-              {format(new Date(comanda.fecha_apertura), "HH:mm", { locale: es })}
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Apertura</span>
+            <span className="font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-xl">
+              {format(new Date(comanda.fecha_apertura), "HH:mm", { locale: es })} hs
             </span>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="p-4 sm:p-6 space-y-6">
+      <CardContent className="p-8 space-y-6">
         {/* Agregar Más Platos */}
         {puedeModificar && (
           <div>
@@ -323,9 +323,9 @@ export default function ComandaDetalle({
               <Button
                 onClick={() => setMostrarAgregarPlatos(true)}
                 variant="outline"
-                className="w-full border-dashed border-2"
+                className="w-full h-14 rounded-2xl border-dashed border-2 border-slate-200 hover:bg-slate-50 text-slate-500 font-bold"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-5 h-5 mr-2" />
                 Agregar Más Platos
               </Button>
             ) : (
@@ -451,8 +451,8 @@ export default function ComandaDetalle({
         )}
 
         {/* Lista de Platos */}
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-3 text-sm sm:text-base">
+        <div className="space-y-4">
+          <h3 className="font-black text-slate-700 text-sm sm:text-base border-b border-slate-100 pb-2">
             Platos de la Comanda
           </h3>
           <div className="space-y-3">
@@ -462,24 +462,24 @@ export default function ComandaDetalle({
               const Icon = config.icon;
 
               return (
-                <div key={detalle.id} className="bg-white border rounded-lg p-3 sm:p-4 space-y-3">
+                <div key={detalle.id} className="bg-slate-50 border border-slate-100 rounded-[2rem] p-6 space-y-4 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                      <h4 className="font-bold text-slate-800 text-base truncate">
                         {detalle.cantidad}x {detalle.plato_nombre}
                       </h4>
                       {detalle.notas_plato && (
-                        <p className="text-xs text-gray-500 italic mt-1">"{detalle.notas_plato}"</p>
+                        <p className="text-xs text-amber-800 font-medium italic mt-2 bg-amber-50/50 p-2.5 rounded-xl border-l-2 border-amber-400">"{detalle.notas_plato}"</p>
                       )}
                     </div>
-                    <span className="font-bold text-amber-600 text-sm sm:text-base flex-shrink-0">
+                    <span className="font-black text-amber-600 text-lg flex-shrink-0">
                       ${(detalle.subtotal ?? 0).toFixed(2)}
                     </span>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <Badge className={`${config.color} border flex items-center gap-1`}>
-                      <Icon className="w-3 h-3" />
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-3 border-t border-slate-100/50">
+                    <Badge className={`${config.color} border px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5`}>
+                      <Icon className="w-3.5 h-3.5" />
                       {config.label}
                     </Badge>
 
@@ -488,7 +488,7 @@ export default function ComandaDetalle({
                         size="sm"
                         variant="outline"
                         onClick={() => handleCambiarEstado(detalle.id, detalle.estado_plato)}
-                        className="text-xs w-full sm:w-auto"
+                        className="text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-100 hover:scale-[1.02] active:scale-95 transition-all w-full sm:w-auto"
                       >
                         Marcar como {estadoPlatoConfig[config.siguiente].label}
                       </Button>
@@ -501,54 +501,57 @@ export default function ComandaDetalle({
         </div>
 
         {/* Total y Conversiones */}
-        <div className="space-y-4">
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-4 border-2 border-amber-200">
-            <div className="flex justify-between items-center">
-              <span className="text-base sm:text-lg font-bold text-gray-900">TOTAL:</span>
-              <span className="text-xl sm:text-2xl font-bold text-amber-600">
-                ${(subtotalUSD ?? 0).toFixed(2)}
-              </span>
+        <div className="space-y-6 pt-4 border-t border-slate-100">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-lg shadow-slate-900/20">
+            <div className="absolute right-0 top-0 p-8 opacity-5 pointer-events-none">
+              <Receipt className="w-32 h-32" />
+            </div>
+            <div className="flex justify-between items-center relative z-10">
+              <span className="text-sm font-bold uppercase tracking-wider opacity-60">TOTAL DE LA COMANDA</span>
+              <span className="text-3xl font-black tracking-tight">${(subtotalUSD ?? 0).toFixed(2)}</span>
             </div>
           </div>
 
           {/* Conversiones de Moneda */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
-            <h3 className="font-bold text-gray-900 mb-3 text-center text-sm sm:text-base">?? CONVERSIÓN DE MONEDAS</h3>
-
-            <div className="space-y-3">
+          <div className="space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Conversión de Monedas</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* USD */}
-              <div className="bg-white rounded-lg p-3 border border-blue-200">
-                <p className="text-xs text-gray-600 mb-1">DÓLARES (USD)</p>
-                <p className="text-xl sm:text-2xl font-bold text-blue-600">
-                  ${totalUSD.toFixed(2)}
-                </p>
+              <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] p-4 flex flex-col justify-between">
+                <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Dólares (USD)</p>
+                <p className="text-2xl font-black text-slate-800">${totalUSD.toFixed(2)}</p>
               </div>
 
               {/* COP */}
-              <div className="bg-white rounded-lg p-3 border border-green-200">
-                <p className="text-xs text-gray-600 mb-1">PESOS (COP)</p>
-                <p className="text-xl sm:text-2xl font-bold text-green-600">
-                  ¢ {totalCOP.toLocaleString('es-CO')}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  (Calculado: ${totalUSD.toFixed(2)} × {tasaCOPLocal.toLocaleString('es-CO')})
+              <div className="bg-blue-50/50 border border-blue-100 rounded-[1.5rem] p-4 flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] text-blue-600/80 font-bold uppercase mb-1">Pesos (COP)</p>
+                  <p className="text-2xl font-black text-blue-700">₡ {totalCOP.toLocaleString('es-CO')}</p>
+                </div>
+                <p className="text-[9px] text-blue-500 font-bold mt-2">
+                  Tasa: 1 USD = ₡ {tasaCOPLocal.toLocaleString('es-CO')}
                 </p>
               </div>
 
               {/* VES */}
               {tasaUSDLocal || tasaActual ? (
-                <div className="bg-white rounded-lg p-3 border border-amber-200">
-                  <p className="text-xs text-gray-600 mb-1">BOLÍVARES (VES) {tasaUSDLocal && '- CON RECARGO 16%'}</p>
-                  <p className="text-xl sm:text-2xl font-bold text-amber-600">
-                    Bs {totalVES.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    (Calculado: ${totalUSD.toFixed(2)} × {(tasaUSDLocal || tasaActual.tasa_bs_usd).toLocaleString('es-ES', { minimumFractionDigits: 2 })})
+                <div className="bg-emerald-50/50 border border-emerald-100 rounded-[1.5rem] p-4 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[10px] text-emerald-600/80 font-bold uppercase mb-1">
+                      Bolívares (VES) {tasaUSDLocal && '16% Recargo'}
+                    </p>
+                    <p className="text-2xl font-black text-emerald-700">
+                      Bs {totalVES.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <p className="text-[9px] text-emerald-500 font-bold mt-2">
+                    Tasa: 1 USD = Bs {(tasaUSDLocal || tasaActual.tasa_bs_usd).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               ) : (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-xs text-red-700">?? No hay tasa configurada para hoy</p>
+                <div className="bg-red-50 border border-red-200 rounded-[1.5rem] p-4 flex items-center justify-center">
+                  <p className="text-xs font-bold text-red-700 text-center">Tasa Bs no configurada</p>
                 </div>
               )}
             </div>
@@ -556,22 +559,22 @@ export default function ComandaDetalle({
         </div>
 
         {/* Botones de Impresión */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-4 pt-4">
           <Button
             onClick={() => setMostrarImprimirCaja(true)}
             variant="outline"
-            className="flex-1"
+            className="flex-1 h-14 rounded-2xl font-bold border-slate-200 hover:bg-slate-100"
           >
-            <Printer className="w-4 h-4 mr-2" />
-            ?? Imprimir para Caja
+            <Printer className="w-5 h-5 mr-2 text-slate-500" />
+            Imprimir para Caja
           </Button>
           <Button
             onClick={() => setMostrarImprimirCocina(true)}
             variant="outline"
-            className="flex-1"
+            className="flex-1 h-14 rounded-2xl font-bold border-slate-200 hover:bg-slate-100"
           >
-            <ChefHat className="w-4 h-4 mr-2" />
-            ?? Imprimir para Cocina
+            <ChefHat className="w-5 h-5 mr-2 text-slate-500" />
+            Imprimir para Cocina
           </Button>
         </div>
 
@@ -679,136 +682,140 @@ export default function ComandaDetalle({
 
       {/* Footer con Botón de Pago */}
       {puedePagar && (
-        <CardFooter className="bg-gray-50 p-4 sm:p-6 flex-col space-y-3">
+        <CardFooter className="bg-slate-50 p-8 flex-col space-y-6 rounded-b-[2.5rem] border-t border-slate-100">
             {!mostrarPago ? (
               <Button
-                onClick={() => puedeCerrarFactura ? setMostrarPago(true) : toast.error("?? Solo cajeros y administradores pueden cerrar facturas")}
-                className="w-full bg-green-600 hover:bg-green-700"
+                onClick={() => puedeCerrarFactura ? setMostrarPago(true) : toast.error("⚠️ Solo cajeros y administradores pueden cerrar facturas")}
+                className="w-full h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold shadow-lg shadow-green-200/50 hover:scale-[1.02] active:scale-95 transition-all"
                 size="lg"
                 disabled={!puedeCerrarFactura}
               >
                 <CreditCard className="w-5 h-5 mr-2" />
-                {puedeCerrarFactura ? "Cerrar y Pagar Comanda" : "?? Solo Cajeros/Admin"}
+                {puedeCerrarFactura ? "Cerrar y Pagar Comanda" : "⚠️ Solo Cajeros/Admin"}
               </Button>
             ) : (
-              <div className="w-full space-y-4">
+              <div className="w-full space-y-6">
                 {/* Selector de Descuento */}
                 <div className="space-y-2">
-                  <Label className="font-semibold">?? DESCUENTO</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">🏷️ Descuento</Label>
                   <Select value={descuentoPorcentaje.toString()} onValueChange={(val) => setDescuentoPorcentaje(parseInt(val))}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-14 rounded-2xl bg-white border-slate-200 shadow-sm font-semibold">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0">Sin descuento</SelectItem>
-                      <SelectItem value="5">5% de descuento</SelectItem>
-                      <SelectItem value="10">10% de descuento</SelectItem>
-                      <SelectItem value="15">15% de descuento</SelectItem>
-                      <SelectItem value="20">20% de descuento</SelectItem>
-                      <SelectItem value="25">25% de descuento</SelectItem>
-                      <SelectItem value="30">30% de descuento</SelectItem>
+                      <SelectItem value="0" className="font-semibold">Sin descuento</SelectItem>
+                      <SelectItem value="5" className="font-semibold">5% de descuento</SelectItem>
+                      <SelectItem value="10" className="font-semibold">10% de descuento</SelectItem>
+                      <SelectItem value="15" className="font-semibold">15% de descuento</SelectItem>
+                      <SelectItem value="20" className="font-semibold">20% de descuento</SelectItem>
+                      <SelectItem value="25" className="font-semibold">25% de descuento</SelectItem>
+                      <SelectItem value="30" className="font-semibold">30% de descuento</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 {/* Conversión Multi-Moneda */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4">
-                  <h3 className="font-bold text-gray-900 mb-3 text-center">?? TOTAL A PAGAR</h3>
+                <div className="bg-white border border-slate-200 rounded-[2rem] p-6 space-y-4 shadow-sm">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 text-center border-b pb-3 mb-2">Total a Recibir</h3>
 
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {/* Subtotal y Descuento */}
                     {descuentoPorcentaje > 0 && (
-                      <div className="bg-white rounded-lg p-3 border border-green-200">
-                        <div className="flex justify-between text-sm text-gray-600 mb-1">
-                          <span>Subtotal:</span>
+                      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-1.5">
+                        <div className="flex justify-between text-xs font-bold text-slate-400">
+                          <span>SUBTOTAL:</span>
                           <span>${subtotalUSD.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between text-sm text-green-600 mb-1">
-                          <span>Descuento ({descuentoPorcentaje}%):</span>
+                        <div className="flex justify-between text-xs font-bold text-green-600">
+                          <span>DESCUENTO ({descuentoPorcentaje}%):</span>
                           <span>-${descuentoMonto.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between font-bold text-blue-600 pt-2 border-t">
-                          <span>Total con descuento:</span>
+                        <div className="flex justify-between font-black text-slate-800 pt-2 border-t border-slate-200/50">
+                          <span>TOTAL:</span>
                           <span>${totalUSD.toFixed(2)}</span>
                         </div>
                       </div>
                     )}
-                    {/* USD */}
-                    <div className="bg-white rounded-lg p-3 border border-blue-200">
-                      <p className="text-xs text-gray-600 mb-1">DÓLARES (USD)</p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        ${(totalUSD ?? 0).toFixed(2)}
-                      </p>
-                    </div>
+                    
+                    {/* Grid de importes */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* USD */}
+                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col justify-between">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Dólares (USD)</p>
+                        <p className="text-xl font-black text-slate-800">${totalUSD.toFixed(2)}</p>
+                      </div>
 
-                    {/* COP */}
-                    <div className="bg-white rounded-lg p-3 border border-green-200">
-                      <p className="text-xs text-gray-600 mb-1">PESOS (COP)</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        ¢ {totalCOP.toLocaleString('es-CO')}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        (Calculado: ${totalUSD.toFixed(2)} × {tasaCOPLocal.toLocaleString('es-CO')})
-                      </p>
-                    </div>
-
-                    {/* VES */}
-                    {tasaUSDLocal || tasaActual ? (
-                      <div className="bg-white rounded-lg p-3 border border-amber-200">
-                        <p className="text-xs text-gray-600 mb-1">BOLÍVARES (VES) {tasaUSDLocal && '- CON RECARGO 16%'}</p>
-                        <p className="text-2xl font-bold text-amber-600">
-                          Bs {totalVES.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          (Calculado: ${(totalUSD ?? 0).toFixed(2)} × {(tasaUSDLocal || tasaActual.tasa_bs_usd).toLocaleString('es-ES', { minimumFractionDigits: 2 })})
+                      {/* COP */}
+                      <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 flex flex-col justify-between">
+                        <div>
+                          <p className="text-[10px] text-blue-600/80 font-bold uppercase mb-1">Pesos (COP)</p>
+                          <p className="text-xl font-black text-blue-700">₡ {totalCOP.toLocaleString('es-CO')}</p>
+                        </div>
+                        <p className="text-[9px] text-blue-500 font-bold mt-2">
+                          Tasa: {tasaCOPLocal.toLocaleString('es-CO')}
                         </p>
                       </div>
-                    ) : (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                        <p className="text-xs text-red-700">?? No hay tasa configurada para hoy</p>
-                      </div>
-                    )}
+
+                      {/* VES */}
+                      {tasaUSDLocal || tasaActual ? (
+                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 flex flex-col justify-between">
+                          <div>
+                            <p className="text-[10px] text-emerald-600/80 font-bold uppercase mb-1">Bolívares (VES)</p>
+                            <p className="text-xl font-black text-emerald-700">
+                              Bs {totalVES.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <p className="text-[9px] text-emerald-500 font-bold mt-2">
+                            Tasa: Bs {(tasaUSDLocal || tasaActual.tasa_bs_usd).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-center">
+                          <p className="text-xs font-bold text-red-700">Tasa Bs no configurada</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Método de Pago */}
                 <div className="space-y-2">
-                  <Label className="font-semibold">?? MÉTODO DE PAGO</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-400">💵 Método de Pago</Label>
                   <Select value={metodoPago} onValueChange={setMetodoPago}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-14 rounded-2xl bg-white border-slate-200 shadow-sm font-semibold text-slate-700">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="efectivo_usd">?? Efectivo USD</SelectItem>
-                      <SelectItem value="binance_usd">?? Binance</SelectItem>
-                      <SelectItem value="zinli_usd">?? Zinli</SelectItem>
-                      <SelectItem value="paypal_usd">?? PayPal</SelectItem>
-                      <SelectItem value="zelle_usd">?? Zelle</SelectItem>
-                      <SelectItem value="nequi_cop">📱 Nequi</SelectItem>
-                      <SelectItem value="efectivo_cop">💵 Efectivo COP</SelectItem>
-                      <SelectItem value="tarjeta_bs">💳 Tarjeta Bs</SelectItem>
-                      <SelectItem value="pago_movil_bs">?? Pago Móvil</SelectItem>
-                      <SelectItem value="mixto">?? Pago Mixto</SelectItem>
-                      <SelectItem value="cuentas_por_cobrar">?? Cuenta por Cobrar</SelectItem>
+                      <SelectItem value="efectivo_usd" className="font-semibold">💵 Efectivo USD</SelectItem>
+                      <SelectItem value="binance_usd" className="font-semibold">🪙 Binance</SelectItem>
+                      <SelectItem value="zinli_usd" className="font-semibold">📱 Zinli</SelectItem>
+                      <SelectItem value="paypal_usd" className="font-semibold">💳 PayPal</SelectItem>
+                      <SelectItem value="zelle_usd" className="font-semibold">⚡ Zelle</SelectItem>
+                      <SelectItem value="nequi_cop" className="font-semibold">📱 Nequi</SelectItem>
+                      <SelectItem value="efectivo_cop" className="font-semibold">💵 Efectivo COP</SelectItem>
+                      <SelectItem value="tarjeta_bs" className="font-semibold">💳 Tarjeta Bs</SelectItem>
+                      <SelectItem value="pago_movil_bs" className="font-semibold">📱 Pago Móvil</SelectItem>
+                      <SelectItem value="mixto" className="font-semibold">🔀 Pago Mixto</SelectItem>
+                      <SelectItem value="cuentas_por_cobrar" className="font-semibold">📂 Cuenta por Cobrar</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-4 pt-2">
                   <Button
                     variant="outline"
                     onClick={() => setMostrarPago(false)}
-                    className="flex-1"
+                    className="flex-1 h-14 rounded-2xl font-bold border-slate-200"
                     disabled={isLoading}
                   >
                     Cancelar
                   </Button>
                   <Button
                     onClick={handlePagar}
-                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    className="flex-1 h-14 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold shadow-lg shadow-green-200/50 hover:scale-[1.02] active:scale-95 transition-all"
                     disabled={isLoading || (!tasaUSDLocal && !tasaActual)}
                   >
-                    {isLoading ? "Procesando..." : "? CONFIRMAR PAGO"}
+                    {isLoading ? "Procesando..." : "Confirmar Pago"}
                   </Button>
                 </div>
               </div>
