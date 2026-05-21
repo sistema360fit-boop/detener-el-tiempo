@@ -34,7 +34,6 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
-import CalculadoraTasas from "./CalculadoraTasas"
 
 // Importar funciones de control de acceso
 import { getCurrentUser, canAccessPage } from "@/lib/roles"
@@ -130,8 +129,6 @@ export function AppSidebar() {
     navigate("/")
   }
 
-  const tieneAccesoCalculadora = userRole && ["administrador", "cajero", "mesero"].includes(userRole);
-
   return (
     <Sidebar collapsible="icon" className="border-r border-slate-200">
       {/* Cabecera del Sidebar */}
@@ -202,10 +199,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* Pie del Sidebar (Cerrar Sesión / Usuario) */}
-      <SidebarFooter className={`p-4 ${collapsed ? "flex flex-col items-center gap-4" : "space-y-4"}`}>
-        {tieneAccesoCalculadora && (
-          <CalculadoraTasas collapsed={collapsed} />
-        )}
+      <SidebarFooter className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 

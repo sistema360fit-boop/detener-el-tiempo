@@ -80,6 +80,7 @@ import ReportesDiarios from './pages/ReportesDiarios';
 import ReportesEntradaSalida from './pages/ReportesEntradaSalida';
 import ReportesMetodosPago from './pages/ReportesMetodosPago';
 import Personal from './pages/Personal';
+import CalculadoraTasas from './components/CalculadoraTasas';
 
 // --- COMPONENTE DE DISEÑO PROTEGIDO ---
 const ProtectedLayout = ({ children }) => {
@@ -115,6 +116,9 @@ const ProtectedLayout = ({ children }) => {
             </div>
           </main>
         </SidebarInset>
+        
+        {/* Calculadora de Tasas global como botón flotante */}
+        <CalculadoraTasas />
       </div>
     </SidebarProvider>
   );

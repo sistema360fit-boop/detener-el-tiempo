@@ -10,8 +10,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { getCurrentUser } from "@/lib/roles";
 
-export default function CalculadoraTasas({ collapsed }) {
+export default function CalculadoraTasas() {
   const [tasaUSD, setTasaUSD] = useState(null);
   const [tasaCOP, setTasaCOP] = useState(null);
 
@@ -204,58 +205,37 @@ export default function CalculadoraTasas({ collapsed }) {
     );
   };
 
-  // Si no hay tasas registradas, mostrar un aviso sutil si no está colapsado
-  if (!tasasDisponibles) {
-    if (collapsed) return null;
-    return (
-      <div className="mx-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-800 font-medium">
-        ⚠️ No hay tasas de cambio activas cargadas en el sistema.
-      </div>
-    );
+  const user = getCurrentUser();
+  const userRole = user?.rol?.toLowerCase();
+  const tieneAcceso = userRole && ["administrador", "cajero", "mesero"].includes(userRole);
+
+  if (!tasasDisponibles || !tieneAcceso) {
+    return null;
   }
 
-  // Si el sidebar está colapsado, mostrar solo un botón que abre el Dialog
-  if (collapsed) {
-    return (
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogTrigger asChild>
-          <Button
-            variant="ghost"
-            title="Calculadora de Tasas"
-            className="w-10 h-10 p-0 rounded-lg flex items-center justify-center hover:bg-red-50 hover:text-red-700 transition-colors text-slate-500"
-          >
-            <Calculator className="w-5 h-5" />
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[360px] p-5 rounded-2xl bg-white border border-slate-200 shadow-2xl">
-          <DialogHeader className="border-b border-slate-100 pb-3 flex flex-row items-center gap-2.5 space-y-0">
-            <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600">
-              <Calculator className="w-4 h-4" />
-            </div>
-            <DialogTitle className="text-base font-bold text-slate-900">
-              Calculadora de Tasas
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-2">
-            {renderCalculadoraInputs(true)}
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  // Si el sidebar está expandido, mostrar la tarjeta interactiva
   return (
-    <div className="mx-2 p-4 bg-white border border-slate-150 rounded-xl shadow-sm hover:shadow transition-all duration-300">
-      <div className="flex items-center gap-2 mb-3.5 border-b border-slate-100 pb-2">
-        <div className="w-6 h-6 rounded-md bg-red-50 flex items-center justify-center text-red-600">
-          <Calculator className="w-3.5 h-3.5" />
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <DialogTrigger asChild>
+        <Button
+          title="Calculadora de Tasas"
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-2xl bg-red-600 hover:bg-red-700 hover:scale-105 transition-all duration-300 z-50 text-white p-0 flex items-center justify-center"
+        >
+          <Calculator className="w-6 h-6" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[360px] p-5 rounded-2xl bg-white border border-slate-200 shadow-2xl">
+        <DialogHeader className="border-b border-slate-100 pb-3 flex flex-row items-center gap-2.5 space-y-0">
+          <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600">
+            <Calculator className="w-4 h-4" />
+          </div>
+          <DialogTitle className="text-base font-bold text-slate-900">
+            Calculadora de Tasas
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-2">
+          {renderCalculadoraInputs(true)}
         </div>
-        <span className="text-xs font-bold text-slate-800">
-          Calculadora de Tasas
-        </span>
-      </div>
-      {renderCalculadoraInputs(false)}
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
