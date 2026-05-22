@@ -497,6 +497,16 @@ const normalizeFromServer = (entity, data) => {
     }
   }
 
+  // === CAMPOS PARA ALERTA STOCK ===
+  if (entity === 'AlertaStock') {
+    if (normalized.creadoEn && !normalized.fecha_alerta) {
+      normalized.fecha_alerta = normalized.creadoEn;
+    }
+    if (normalized.ingrediente_nombre && !normalized.nombre_ingrediente) {
+      normalized.nombre_ingrediente = normalized.ingrediente_nombre;
+    }
+  }
+
   // === RECURSIVIDAD PARA CAMPOS ANIDADOS ===
   Object.keys(normalized).forEach(key => {
     if (Array.isArray(normalized[key]) && normalized[key].length > 0 && typeof normalized[key][0] === 'object') {
