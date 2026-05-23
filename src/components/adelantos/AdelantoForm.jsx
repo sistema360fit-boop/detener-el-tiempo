@@ -4,9 +4,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useQuery } from "@tanstack/react-query";
+import { api as base44 } from "@/api/apiAdapter";
 
 export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }) {
   const [metodoPago, setMetodoPago] = useState(adelanto?.metodo_pago || "");
+  const [empleadoId, setEmpleadoId] = useState(adelanto?.empleado_id || "");
+
+  const { data: empleados = [], isLoading: loadingEmpleados } = useQuery({
+    queryKey: ['personal'],
+    queryFn: () => base44.entities.Empleado.list()
+  });
 
   const esMetodoBs = metodoPago === 'tarjeta_bs' || metodoPago === 'pago_movil_bs';
 
@@ -14,6 +22,14 @@ export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }
     e.preventDefault();
     const formData = new FormData(e.target);
     
+    if (!empleadoId) {
+      alert("Por favor selecciona un empleado");
+      return;
+    }
+
+    const empleadoSeleccionado = empleados.find(emp => emp.id === empleadoId);
+    const empleado_nombre = empleadoSeleccionado ? empleadoSeleccionado.nombre_completo : adelanto?.empleado_nombre || "Desconocido";
+
     const montoForm = parseFloat(formData.get("monto") || "0");
     const tasaBs = formData.get("tasa_bs") ? parseFloat(formData.get("tasa_bs")) : null;
 
@@ -31,8 +47,8 @@ export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }
     }
 
     const data = {
-      empleado_id: formData.get("empleado_id"),
-      empleado_nombre: formData.get("empleado_nombre"),
+      empleado_id: empleadoId,
+      empleado_nombre: empleado_nombre,
       monto: montoUSD,
       monto_original: montoOriginal,
       moneda_original: monedaOriginal,
@@ -53,23 +69,19 @@ export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label>ID Empleado</Label>
-        <Input
-          name="empleado_id"
-          defaultValue={adelanto?.empleado_id}
-          required
-          placeholder="ID del empleado"
-        />
-      </div>
-
-      <div>
-        <Label>Nombre del Empleado</Label>
-        <Input
-          name="empleado_nombre"
-          defaultValue={adelanto?.empleado_nombre}
-          required
-          placeholder="Nombre completo"
-        />
+        <Label>Empleado</Label>
+        <Select value={empleadoId} onValueChange={setEmpleadoId} required disabled={loadingEmpleados}>
+          <SelectTrigger>
+            <SelectValue placeholder={loadingEmpleados ? "Cargando empleados..." : "Seleccionar empleado"} />
+          </SelectTrigger>
+          <SelectContent>
+            {empleados.map((emp) => (
+              <SelectItem key={emp.id} value={emp.id}>
+                {emp.nombre_completo} ({emp.cargo || 'Sin cargo'})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div>
@@ -145,7 +157,7 @@ export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }
         <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
           Cancelar
         </Button>
-        <Button type="submit" disabled={isLoading} className="flex-1">
+        <Button type="submit" disabled={isLoading || loadingEmpleados} className="flex-1">
           {isLoading ? "Guardando..." : adelanto ? "Actualizar" : "Crear Adelanto"}
         </Button>
       </div>
