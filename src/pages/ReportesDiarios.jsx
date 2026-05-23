@@ -45,6 +45,11 @@ export default function ReportesDiarios() {
     queryFn: () => base44.entities.PagoMixto.list('-created_date', 1000),
   });
 
+  const { data: pagosCuentas = [] } = useQuery({
+    queryKey: ['pagos-cuentas'],
+    queryFn: () => base44.entities.PagoCuentaPorCobrar.list('-created_date', 1000),
+  });
+
   const { data: comandas = [] } = useQuery({
     queryKey: ['comandas'],
     queryFn: () => base44.entities.Comanda.list('-created_date', 500),
@@ -87,6 +92,16 @@ export default function ReportesDiarios() {
         try {
           const fechaVenta = parseISO(v.fecha_hora);
           return fechaVenta >= fechaInicio && fechaVenta <= fechaFin;
+        } catch {
+          return false;
+        }
+      });
+
+      // Filtrar pagos de cuentas por cobrar del día
+      const pagosCuentasDia = pagosCuentas.filter(p => {
+        try {
+          const fechaP = parseISO(p.fecha_pago || p.createdAt);
+          return fechaP >= fechaInicio && fechaP <= fechaFin;
         } catch {
           return false;
         }
@@ -138,8 +153,15 @@ export default function ReportesDiarios() {
       });
 
       // Calcular totales separados - SIN CONVERSIÓN
-      const totalVentasDivisas = ventasDia.filter(v => metodosDivisas(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0);
-      const totalVentasBolivares = ventasDia.filter(v => metodosBolivares(v.metodo_pago)).reduce((sum, v) => sum + (v.total_ves || 0), 0);
+      const ventasDivisasBase = ventasDia.filter(v => metodosDivisas(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0);
+      const ventasBolivaresBase = ventasDia.filter(v => metodosBolivares(v.metodo_pago)).reduce((sum, v) => sum + (v.total_ves || 0), 0);
+      
+      const pagosCuentasDivisas = pagosCuentasDia.filter(p => metodosDivisas(p.metodo_pago)).reduce((sum, p) => sum + (p.monto_pagado || 0), 0);
+      // Para pagosCuentasDia en Bs, asumimos monto_pagado como Bs si metodosBolivares es true
+      const pagosCuentasBolivares = pagosCuentasDia.filter(p => metodosBolivares(p.metodo_pago)).reduce((sum, p) => sum + (p.monto_pagado || 0), 0);
+
+      const totalVentasDivisas = ventasDivisasBase + pagosCuentasDivisas;
+      const totalVentasBolivares = ventasBolivaresBase + pagosCuentasBolivares;
       
       const totalGastosDivisas = gastosDia.filter(g => metodosDivisas(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
       const totalGastosBolivares = gastosDia.filter(g => metodosBolivares(g.metodo_pago)).reduce((sum, g) => sum + (g.monto_original || g.monto || 0), 0);
@@ -185,6 +207,32 @@ export default function ReportesDiarios() {
              es_parte_mixto: false
           });
         }
+      });
+
+      // 1.5 Procesar pagos de cuentas por cobrar (Créditos Pagados)
+      pagosCuentasDia.forEach(pago => {
+        const metodo = pago.metodo_pago || 'efectivo_usd';
+        if (!ventasPorMetodo[metodo]) {
+          ventasPorMetodo[metodo] = { cantidad: 0, total: 0, comandas: [] };
+        }
+        ventasPorMetodo[metodo].cantidad += 1;
+        
+        if (metodosBolivares(metodo)) {
+          ventasPorMetodo[metodo].total_ves = (ventasPorMetodo[metodo].total_ves || 0) + (pago.monto_pagado || 0);
+        } else {
+          ventasPorMetodo[metodo].total += pago.monto_pagado || 0;
+        }
+
+        detallesVentas.push({
+          id: pago.id,
+          hora: format(parseISO(pago.fecha_pago || pago.createdAt), 'HH:mm', { locale: es }),
+          metodo_pago: metodo,
+          total: metodosBolivares(metodo) ? 0 : pago.monto_pagado,
+          total_cop: metodo.includes('cop') ? pago.monto_pagado : 0,
+          total_ves: metodosBolivares(metodo) ? pago.monto_pagado : 0,
+          es_parte_mixto: false,
+          descripcion: `Pago de Deuda: ${pago.empleado_nombre || 'Cliente'}`
+        });
       });
 
       // 2. Procesar pagos mixtos

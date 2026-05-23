@@ -19,11 +19,12 @@ router.get('/', requireAuth, async (req, res) => {
 
 router.post('/', requireAdmin, async (req, res) => {
   try {
+    const { createdAt, ...bodyData } = req.body;
     const { data, error } = await supabase
       .from('PagoCuentaPorCobrar')
       .insert({
-        ...req.body,
-        id: crypto.randomUUID()
+        ...bodyData,
+        id: bodyData.id || crypto.randomUUID()
       })
       .select()
       .single();
