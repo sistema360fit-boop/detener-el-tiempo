@@ -182,8 +182,13 @@ model CuentaPorCobrar {
   clienteNombre String?
   empleadoId    String?
   monto         Float
+  monto_total   Float?   @default(0)
+  monto_pendiente Float? @default(0)
   estado        String   @default("pendiente")
+  fecha_creacion DateTime @default(now())
   vencimiento   DateTime?
+  comanda_numero String?
+  cliente_telefono String?
 }
 
 model Empleado {
@@ -228,10 +233,17 @@ model LogLimpieza {
 
 model PagoCuentaPorCobrar {
   id        String   @id @default(uuid())
-  cuentaId  String
-  monto     Float
+  cuenta_id String?
+  cuentaId  String?
+  monto     Float?
+  monto_pagado Float?
   fecha     DateTime @default(now())
+  fecha_pago DateTime @default(now())
   metodo    String?
+  metodo_pago String?
+  tasa_bs_aplicada Float?
+  notas     String?
+  empleado_nombre String?
 }
 
 model PagoMixto {

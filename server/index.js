@@ -33,6 +33,8 @@ import detalleRecetasPrimariasRoutes from './routes/detalleRecetasPrimarias.js';
 import detalleRecetasSecundariasRoutes from './routes/detalleRecetasSecundarias.js';
 import pagosMixtosRoutes from './routes/pagosMixtos.js';
 import mantenimientoRoutes from './routes/mantenimiento.js';
+import cuentasPorCobrarRoutes from './routes/cuentasPorCobrar.js';
+import pagosCuentasRoutes from './routes/pagosCuentas.js';
 import { addClient } from './services/cocinaEvents.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -83,6 +85,8 @@ app.use('/api/detallerecetaprimarias', detalleRecetasPrimariasRoutes);
 app.use('/api/detallerecetasecundarias', detalleRecetasSecundariasRoutes);
 app.use('/api/pagomixtos', pagosMixtosRoutes);
 app.use('/api/mantenimiento', mantenimientoRoutes);
+app.use('/api/cuentaporcobrars', cuentasPorCobrarRoutes);
+app.use('/api/pagocuentaporcobrars', pagosCuentasRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

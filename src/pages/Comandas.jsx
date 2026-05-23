@@ -453,6 +453,7 @@ export default function Comandas() {
         <ComandasList
           comandas={comandasFiltradas}
           detalles={detallesComandas}
+          empleados={empleados}
           onVerDetalle={handleVerDetalle}
           isLoading={loadingComandas}
         />

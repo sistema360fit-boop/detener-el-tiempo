@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import ComandaPrintView from "./ComandaPrintView";
 
-export default function ComandasList({ comandas, detalles, onVerDetalle, isLoading }) {
+export default function ComandasList({ comandas, detalles, onVerDetalle, isLoading, empleados = [] }) {
   const [comandaImprimir, setComandaImprimir] = useState(null);
   if (isLoading) {
     return (
@@ -130,7 +130,7 @@ export default function ComandasList({ comandas, detalles, onVerDetalle, isLoadi
                         Empleado
                       </span>
                       <span className="font-semibold text-purple-700 truncate max-w-[150px]">
-                        ID: {comanda.empleado_id.substring(0, 5)}...
+                        {empleados.find(e => e.id === comanda.empleado_id)?.nombre || `ID: ${comanda.empleado_id.substring(0, 5)}...`}
                       </span>
                     </div>
                   )}
