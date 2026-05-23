@@ -40,8 +40,11 @@ export default function ReporteMensual() {
   const { data: adelantos = [], isLoading: la } = useQuery({
     queryKey: ['adelantos'], queryFn: () => base44.entities.Adelanto.list('-created_date', 1000),
   });
+  const { data: pagosCuentas = [], isLoading: lp } = useQuery({
+    queryKey: ['pagos-cuentas'], queryFn: () => base44.entities.PagoCuentaPorCobrar.list('-created_date', 1000),
+  });
 
-  const isLoading = lv || lg || la;
+  const isLoading = lv || lg || la || lp;
 
   const metodosConfig = {
     efectivo_usd: { label: "Efectivo USD" },
@@ -66,13 +69,20 @@ export default function ReporteMensual() {
       const gMes = gastos.filter(g => g.fecha_gasto && isWithinInterval(parseISO(g.fecha_gasto), intervalo));
       const aMes = adelantos.filter(a => a.fecha_adelanto && isWithinInterval(parseISO(a.fecha_adelanto), intervalo));
       const cMes = comandas.filter(c => c.estado === 'pagada' && isWithinInterval(parseISO(c.fecha_cierre || c.fecha_apertura), intervalo));
+      const pMes = pagosCuentas.filter(p => {
+        try {
+          return isWithinInterval(parseISO(p.fecha_pago || p.createdAt), intervalo);
+        } catch {
+          return false;
+        }
+      });
 
       // 2. Lógica de cálculo por moneda
       const esBs = (m) => m?.endsWith('_bs');
 
       const totales = {
-        vDiv: vMes.filter(v => !esBs(v.metodo_pago) && v.metodo_pago !== 'mixto').reduce((s, v) => s + (v.total_venta || 0), 0),
-        vBs: vMes.filter(v => esBs(v.metodo_pago)).reduce((s, v) => s + (v.total_ves || 0), 0),
+        vDiv: vMes.filter(v => !esBs(v.metodo_pago) && v.metodo_pago !== 'mixto').reduce((s, v) => s + (v.total_venta || 0), 0) + pMes.filter(p => !esBs(p.metodo_pago)).reduce((s, p) => s + (p.monto_pagado || 0), 0),
+        vBs: vMes.filter(v => esBs(v.metodo_pago)).reduce((s, v) => s + (v.total_ves || 0), 0) + pMes.filter(p => esBs(p.metodo_pago)).reduce((s, p) => s + (p.monto_pagado || 0), 0),
         gDiv: gMes.filter(g => !esBs(g.metodo_pago)).reduce((s, g) => s + (g.monto || 0), 0),
         gBs: gMes.filter(g => esBs(g.metodo_pago)).reduce((s, g) => s + (g.monto_original || g.monto || 0), 0),
         aDiv: aMes.filter(a => !esBs(a.metodo_pago)).reduce((s, a) => s + (a.monto || 0), 0),
@@ -98,6 +108,14 @@ export default function ReporteMensual() {
             cant: (ingresosMetodo[v.metodo_pago]?.cant || 0) + 1
           };
         }
+      });
+      pMes.forEach(p => {
+        const monto = p.monto_pagado || 0;
+        const metodo = p.metodo_pago || 'efectivo_usd';
+        ingresosMetodo[metodo] = {
+          total: (ingresosMetodo[metodo]?.total || 0) + monto,
+          cant: (ingresosMetodo[metodo]?.cant || 0) + 1
+        };
       });
 
       setReporte({

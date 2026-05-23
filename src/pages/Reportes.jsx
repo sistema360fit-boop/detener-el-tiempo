@@ -129,6 +129,18 @@ export default function Reportes() {
     },
   });
 
+  const { data: pagosCuentas = [], isLoading: loadingPagosCuentas, error: errorPagosCuentas } = useQuery({
+    queryKey: ['pagos-cuentas'],
+    queryFn: async () => {
+      try {
+        return await base44.entities.PagoCuentaPorCobrar.list('-created_date', 1000);
+      } catch (error) {
+        console.error('Error cargando pagos-cuentas:', error);
+        throw error;
+      }
+    },
+  });
+
   // Ventas de HOY
   const ventasHoy = ventas.filter(v => {
     try {
@@ -151,6 +163,18 @@ export default function Reportes() {
       return fechaVenta >= inicio && fechaVenta <= fin;
     } catch (error) {
       console.error('Error filtrando venta:', v, error);
+      return false;
+    }
+  });
+
+  const pagosCuentasFiltrados = pagosCuentas.filter(p => {
+    try {
+      const fechaP = parseISO(p.fecha_pago || p.createdAt);
+      const inicio = startOfDay(new Date(fechaInicio));
+      const fin = endOfDay(new Date(fechaFin));
+      return fechaP >= inicio && fechaP <= fin;
+    } catch (error) {
+      console.error('Error filtrando pago-cuenta:', p, error);
       return false;
     }
   });
@@ -198,28 +222,28 @@ export default function Reportes() {
   const metodosDivisas = (metodo) => metodo && !metodo.endsWith('_bs') && !metodo.endsWith('_cop') && !['cuentas_por_cobrar', 'mixto'].includes(metodo);
 
   // ── CAJA EFECTIVO USD (solo cash físico) ──
-  const totalVentasEfectivo = ventasFiltradas.filter(v => metodosEfectivoUSD(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0);
+  const totalVentasEfectivo = ventasFiltradas.filter(v => metodosEfectivoUSD(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0) + pagosCuentasFiltrados.filter(p => metodosEfectivoUSD(p.metodo_pago)).reduce((sum, p) => sum + (p.monto_pagado || 0), 0);
   const totalGastosEfectivo = gastosFiltrados.filter(g => metodosEfectivoUSD(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
   const netoEfectivo = totalVentasEfectivo - totalGastosEfectivo;
 
   // ── DIVISAS DIGITALES (Binance, Zinli, PayPal, Zelle) ──
   const metodosDigitalesUSD = (metodo) => metodo && !metodo.endsWith('_bs') && !metodo.endsWith('_cop') && metodo !== 'efectivo_usd' && !['cuentas_por_cobrar', 'mixto'].includes(metodo);
-  const totalVentasDigitales = ventasFiltradas.filter(v => metodosDigitalesUSD(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0);
+  const totalVentasDigitales = ventasFiltradas.filter(v => metodosDigitalesUSD(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0) + pagosCuentasFiltrados.filter(p => metodosDigitalesUSD(p.metodo_pago)).reduce((sum, p) => sum + (p.monto_pagado || 0), 0);
   const totalGastosDigitales = gastosFiltrados.filter(g => metodosDigitalesUSD(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
   const netoDigitales = totalVentasDigitales - totalGastosDigitales;
 
   // ── Total USD (efectivo + digitales) ──
-  const totalVentasDivisas = ventasFiltradas.filter(v => metodosDivisas(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0);
+  const totalVentasDivisas = ventasFiltradas.filter(v => metodosDivisas(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0) + pagosCuentasFiltrados.filter(p => metodosDivisas(p.metodo_pago)).reduce((sum, p) => sum + (p.monto_pagado || 0), 0);
   const totalGastosDivisas = gastosFiltrados.filter(g => metodosDivisas(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
   const netoDivisas = totalVentasDivisas - totalGastosDivisas;
 
   // ── BOLÍVARES (Bs) ──
-  const totalVentasBolivares = ventasFiltradas.filter(v => metodosBolivares(v.metodo_pago)).reduce((sum, v) => sum + (v.total_ves || 0), 0);
+  const totalVentasBolivares = ventasFiltradas.filter(v => metodosBolivares(v.metodo_pago)).reduce((sum, v) => sum + (v.total_ves || 0), 0) + pagosCuentasFiltrados.filter(p => metodosBolivares(p.metodo_pago)).reduce((sum, p) => sum + (p.monto_pagado || 0), 0);
   const totalGastosBolivares = gastosFiltrados.filter(g => metodosBolivares(g.metodo_pago)).reduce((sum, g) => sum + (g.monto_original || g.monto || 0), 0);
   const netoBolivares = totalVentasBolivares - totalGastosBolivares;
 
   // ── COP (Pesos Colombianos) ──
-  const totalVentasCOP = ventasFiltradas.filter(v => metodosCOP(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0);
+  const totalVentasCOP = ventasFiltradas.filter(v => metodosCOP(v.metodo_pago)).reduce((sum, v) => sum + (v.total_venta || 0), 0) + pagosCuentasFiltrados.filter(p => metodosCOP(p.metodo_pago)).reduce((sum, p) => sum + (p.monto_pagado || 0), 0);
   const totalGastosCOP = gastosFiltrados.filter(g => metodosCOP(g.metodo_pago)).reduce((sum, g) => sum + (g.monto || 0), 0);
   const netoCOP = totalVentasCOP - totalGastosCOP;
 
@@ -276,7 +300,7 @@ export default function Reportes() {
   };
 
   // Mostrar errores si existen
-  if (errorVentas || errorDetalles || errorGastos || errorAdelantos) {
+  if (errorVentas || errorDetalles || errorGastos || errorAdelantos || errorPagosCuentas) {
     return (
       <div className="p-4 md:p-8 min-h-screen">
         <div className="max-w-4xl mx-auto">
@@ -430,8 +454,8 @@ export default function Reportes() {
           <TabsList className="grid w-full grid-cols-2 bg-transparent p-1">
             <TabsTrigger value="ventas" className="flex items-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-300 text-slate-400 rounded-xl">
               <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Ventas</span>
-              <span className="text-xs">({ventasFiltradas.length})</span>
+              <span className="hidden sm:inline">Ingresos</span>
+              <span className="text-xs">({ventasFiltradas.length + pagosCuentasFiltrados.length})</span>
             </TabsTrigger>
             <TabsTrigger value="gastos" className="flex items-center gap-1.5 text-xs sm:text-sm data-[state=active]:bg-red-500/20 data-[state=active]:text-red-300 text-slate-400 rounded-xl">
               <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -445,9 +469,9 @@ export default function Reportes() {
               <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5 text-emerald-400" /> Detalle de Ventas
               </h3>
-              {loadingVentas ? (
+              {loadingVentas || loadingPagosCuentas ? (
                 <Skeleton className="h-64 w-full rounded-xl bg-white/10" />
-              ) : ventasFiltradas.length > 0 ? (
+              ) : ventasFiltradas.length > 0 || pagosCuentasFiltrados.length > 0 ? (
                 <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                   <Table>
                     <TableHeader>
@@ -464,12 +488,28 @@ export default function Reportes() {
                             {format(parseISO(venta.fecha_hora), "dd/MM/yy HH:mm", { locale: es })}
                           </TableCell>
                           <TableCell>
-                            <span className="px-2 py-0.5 rounded-md text-xs font-medium" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>{venta.metodo_pago}</span>
+                            <span className="px-2 py-0.5 rounded-md text-xs font-medium" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>Venta: {venta.metodo_pago}</span>
                           </TableCell>
                           <TableCell className="text-right font-bold text-emerald-400">
                             {metodosBolivares(venta.metodo_pago) 
                               ? `Bs ${(venta.total_ves || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
                               : `$${venta.total_venta.toFixed(2)}`
+                            }
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {pagosCuentasFiltrados.map((pago) => (
+                        <TableRow key={`pago-${pago.id}`} className="border-white/5 hover:bg-white/5">
+                          <TableCell className="text-sm text-slate-300">
+                            {format(parseISO(pago.fecha_pago || pago.createdAt), "dd/MM/yy HH:mm", { locale: es })}
+                          </TableCell>
+                          <TableCell>
+                            <span className="px-2 py-0.5 rounded-md text-xs font-medium" style={{ background: 'rgba(16, 185, 129, 0.2)', color: 'rgba(16, 185, 129, 0.9)' }}>Pago Deuda: {pago.metodo_pago}</span>
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-emerald-400">
+                            {metodosBolivares(pago.metodo_pago) 
+                              ? `Bs ${(pago.monto_pagado || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                              : `$${(pago.monto_pagado || 0).toFixed(2)}`
                             }
                           </TableCell>
                         </TableRow>
