@@ -233,7 +233,8 @@ export default function RecetaSecundariaForm({ receta, ingredientes, recetasPrim
                 <Label className="text-[10px] font-bold uppercase text-purple-600">Cantidad</Label>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="any"
+                  min="0.00001"
                   value={cantidadElemento}
                   onChange={(e) => setCantidadElemento(e.target.value)}
                   className="bg-white border-purple-200"

@@ -241,6 +241,7 @@ export default function PlatoForm({ plato, ingredientes, recetasPrimarias, recet
 
                   <Input 
                     type="number" 
+                    step="any"
                     placeholder="Cant." 
                     value={cantidad} 
                     onChange={e => setCantidad(e.target.value)}

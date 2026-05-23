@@ -1,13 +1,18 @@
 import supabase from '../config/supabase.js';
 
 export async function explodirElemento(elementoId, cantidad, consolidado = {}) {
+  if (!elementoId) return consolidado;
+  
+  const qty = parseFloat(cantidad);
+  if (isNaN(qty) || qty <= 0) return consolidado;
+
   // Primero buscar como ingrediente
   const { data: ingrediente } = await supabase
-    .from('Ingrediente').select('*').eq('id', elementoId).single();
+    .from('Ingrediente').select('*').eq('id', elementoId).maybeSingle();
 
   if (ingrediente) {
     if (!consolidado[elementoId]) consolidado[elementoId] = 0;
-    consolidado[elementoId] += cantidad;
+    consolidado[elementoId] += qty;
     return consolidado;
   }
 
@@ -15,12 +20,12 @@ export async function explodirElemento(elementoId, cantidad, consolidado = {}) {
   const { data: recetaPrimaria } = await supabase
     .from('RecetaPrimaria')
     .select('*, detalles:DetalleRecetaPrimaria(*)')
-    .eq('id', elementoId).single();
+    .eq('id', elementoId).maybeSingle();
 
   if (recetaPrimaria) {
-    const factor = recetaPrimaria.cantidadResultante || 1;
+    const factor = parseFloat(recetaPrimaria.cantidadResultante) || 1;
     for (const detalle of recetaPrimaria.detalles) {
-      await explodirElemento(detalle.ingredienteId, (cantidad * detalle.cantidad) / factor, consolidado);
+      await explodirElemento(detalle.ingredienteId, (qty * parseFloat(detalle.cantidad)) / factor, consolidado);
     }
     return consolidado;
   }
@@ -29,12 +34,12 @@ export async function explodirElemento(elementoId, cantidad, consolidado = {}) {
   const { data: recetaSecundaria } = await supabase
     .from('RecetaSecundaria')
     .select('*, detalles:DetalleRecetaSecundaria(*)')
-    .eq('id', elementoId).single();
+    .eq('id', elementoId).maybeSingle();
 
   if (recetaSecundaria) {
-    const factor = recetaSecundaria.cantidadResultante || 1;
+    const factor = parseFloat(recetaSecundaria.cantidadResultante) || 1;
     for (const detalle of recetaSecundaria.detalles) {
-      await explodirElemento(detalle.elementoId, (cantidad * detalle.cantidad) / factor, consolidado);
+      await explodirElemento(detalle.elementoId, (qty * parseFloat(detalle.cantidad)) / factor, consolidado);
     }
     return consolidado;
   }
@@ -43,11 +48,11 @@ export async function explodirElemento(elementoId, cantidad, consolidado = {}) {
   const { data: plato } = await supabase
     .from('Plato')
     .select('*, recetas:Receta(*)')
-    .eq('id', elementoId).single();
+    .eq('id', elementoId).maybeSingle();
 
   if (plato) {
     for (const receta of plato.recetas) {
-      await explodirElemento(receta.ingredienteId || receta.ingrediente_id, cantidad * receta.cantidad_requerida, consolidado);
+      await explodirElemento(receta.ingredienteId || receta.ingrediente_id, qty * parseFloat(receta.cantidad_requerida), consolidado);
     }
     return consolidado;
   }
@@ -56,15 +61,17 @@ export async function explodirElemento(elementoId, cantidad, consolidado = {}) {
 }
 
 export async function descontarDelInventario(ingredienteId, cantidadTotal) {
+  if (!ingredienteId || isNaN(cantidadTotal) || cantidadTotal <= 0) return;
+
   const { data: ingrediente } = await supabase
-    .from('Ingrediente').select('*').eq('id', ingredienteId).single();
+    .from('Ingrediente').select('*').eq('id', ingredienteId).maybeSingle();
 
   if (!ingrediente) return;
 
-  const factorConversion = ingrediente.factor_conversion || 1;
-  const cantidadEnUnidadInventario = cantidadTotal * factorConversion;
-  const stockAnterior = ingrediente.cantidad_disponible || 0;
-  const nuevoStock = Math.max(0, stockAnterior - cantidadEnUnidadInventario);
+  const factorConversion = parseFloat(ingrediente.factor_conversion) || 1;
+  const cantidadEnUnidadInventario = parseFloat(cantidadTotal) * factorConversion;
+  const stockAnterior = parseFloat(ingrediente.cantidad_disponible) || 0;
+  const nuevoStock = stockAnterior - cantidadEnUnidadInventario;
   
   await supabase.from('Ingrediente')
     .update({ cantidad_disponible: nuevoStock })
@@ -94,7 +101,7 @@ export async function descontarDelInventario(ingredienteId, cantidadTotal) {
 export async function recalcularCostosEnCascada(ingredienteId) {
   try {
     // 1. Obtener el ingrediente actualizado
-    const { data: ing } = await supabase.from('Ingrediente').select('*').eq('id', ingredienteId).single();
+    const { data: ing } = await supabase.from('Ingrediente').select('*').eq('id', ingredienteId).maybeSingle();
     if (!ing) return;
 
     // 2. Actualizar DetalleRecetaPrimaria
@@ -141,7 +148,7 @@ export async function recalcularCostosEnCascada(ingredienteId) {
 }
 
 async function actualizarCostoRecetaPrimaria(id) {
-  const { data: rp } = await supabase.from('RecetaPrimaria').select('*, detalles:DetalleRecetaPrimaria(*)').eq('id', id).single();
+  const { data: rp } = await supabase.from('RecetaPrimaria').select('*, detalles:DetalleRecetaPrimaria(*)').eq('id', id).maybeSingle();
   if (!rp) return;
   const costoTotal = rp.detalles.reduce((acc, d) => acc + (d.costo_ingrediente || 0), 0);
   const costoPorUnidad = rp.cantidadResultante > 0 ? costoTotal / rp.cantidadResultante : 0;
@@ -153,7 +160,7 @@ async function actualizarCostoRecetaPrimaria(id) {
 }
 
 async function actualizarCostoRecetaSecundaria(id) {
-  const { data: rs } = await supabase.from('RecetaSecundaria').select('*, detalles:DetalleRecetaSecundaria(*)').eq('id', id).single();
+  const { data: rs } = await supabase.from('RecetaSecundaria').select('*, detalles:DetalleRecetaSecundaria(*)').eq('id', id).maybeSingle();
   if (!rs) return;
   const costoTotal = rs.detalles.reduce((acc, d) => acc + (d.costo_elemento || 0), 0);
   const costoPorUnidad = rs.cantidadResultante > 0 ? costoTotal / rs.cantidadResultante : 0;
@@ -165,7 +172,7 @@ async function actualizarCostoRecetaSecundaria(id) {
 }
 
 async function actualizarCostoPlato(id) {
-  const { data: plato } = await supabase.from('Plato').select('*, recetas:Receta(*)').eq('id', id).single();
+  const { data: plato } = await supabase.from('Plato').select('*, recetas:Receta(*)').eq('id', id).maybeSingle();
   if (!plato) return;
   const costoTotal = plato.recetas.reduce((acc, r) => acc + (r.costo_ingrediente || 0), 0);
   await supabase.from('Plato').update({ costo_total: costoTotal, precio_sugerido: costoTotal * 1.7 }).eq('id', id);
