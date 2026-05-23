@@ -28,7 +28,7 @@ export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }
     }
 
     const empleadoSeleccionado = empleados.find(emp => emp.id === empleadoId);
-    const empleado_nombre = empleadoSeleccionado ? empleadoSeleccionado.nombre_completo : adelanto?.empleado_nombre || "Desconocido";
+    const empleado_nombre = empleadoSeleccionado ? empleadoSeleccionado.nombre : adelanto?.empleado_nombre || "Desconocido";
 
     const montoForm = parseFloat(formData.get("monto") || "0");
     const tasaBs = formData.get("tasa_bs") ? parseFloat(formData.get("tasa_bs")) : null;
@@ -77,7 +77,7 @@ export default function AdelantoForm({ adelanto, onSubmit, onCancel, isLoading }
           <SelectContent>
             {empleados.map((emp) => (
               <SelectItem key={emp.id} value={emp.id}>
-                {emp.nombre_completo} ({emp.cargo || 'Sin cargo'})
+                {emp.nombre} ({emp.rol || 'Sin cargo'})
               </SelectItem>
             ))}
           </SelectContent>
