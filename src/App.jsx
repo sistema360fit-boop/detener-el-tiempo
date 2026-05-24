@@ -58,7 +58,6 @@ import Ingredientes from "./pages/Ingredientes";
 import Gastos from "./pages/Gastos";
 
 import Adelantos from './pages/Adelantos';
-import AdminReset from './pages/AdminReset';
 import Alertas from './pages/Alertas';
 import CategoriasGastos from './pages/CategoriasGastos';
 import Cocina from './pages/Cocina';
@@ -162,7 +161,6 @@ function App() {
         <Route path="/configuracion-retencion" element={<RoleProtectedRoute pageName="ConfiguracionRetencion"><ProtectedLayout><ConfiguracionRetencion /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/personal" element={<RoleProtectedRoute pageName="Personal"><ProtectedLayout><Personal /></ProtectedLayout></RoleProtectedRoute>} />
         {/* Rutas sin sidebar */}
-        <Route path="/admin-reset" element={<RoleProtectedRoute pageName="AdminReset"><ProtectedLayout><AdminReset /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/estado-cuenta-detalle" element={<RoleProtectedRoute pageName="EstadoCuentaDetalle"><ProtectedLayout><EstadoCuentaDetalle /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/estados-cuenta" element={<RoleProtectedRoute pageName="EstadosCuenta"><ProtectedLayout><EstadosCuenta /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/home" element={<RoleProtectedRoute pageName="Home"><ProtectedLayout><Home /></ProtectedLayout></RoleProtectedRoute>} />

@@ -9,7 +9,6 @@
  */
 import Acceso from './pages/Acceso';
 import Adelantos from './pages/Adelantos';
-import AdminReset from './pages/AdminReset';
 import Alertas from './pages/Alertas';
 import CategoriasGastos from './pages/CategoriasGastos';
 import Cocina from './pages/Cocina';
@@ -44,7 +43,6 @@ import __Layout from './Layout.jsx';
 export const PAGES = {
     "Acceso": Acceso,
     "Adelantos": Adelantos,
-    "AdminReset": AdminReset,
     "Alertas": Alertas,
     "CategoriasGastos": CategoriasGastos,
     "Cocina": Cocina,
