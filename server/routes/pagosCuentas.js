@@ -27,8 +27,12 @@ router.post('/', requireAdmin, async (req, res) => {
     const insertData = {
       id: body.id || crypto.randomUUID(),
       cuenta_id: body.cuenta_id || body.cuentaId || null,
+      cuentaId: body.cuenta_id || body.cuentaId || null,
+      monto: parseFloat(body.monto_pagado ?? body.montoPagado ?? 0),
       monto_pagado: parseFloat(body.monto_pagado ?? body.montoPagado ?? 0),
+      metodo: metodo_pago,
       metodo_pago,
+      fecha: body.fecha_pago || body.fechaPago || new Date().toISOString(),
       fecha_pago: body.fecha_pago || body.fechaPago || new Date().toISOString(),
       tasa_bs_aplicada: parseFloat(body.tasa_bs_aplicada ?? body.tasaBsAplicada ?? 0),
       notas: body.notas ?? body.descripcion ?? '',
