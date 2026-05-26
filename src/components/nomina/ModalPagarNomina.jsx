@@ -11,12 +11,13 @@ import { es } from "date-fns/locale";
 
 const METODOS_PAGO = [
   { value: 'efectivo_usd', label: 'Efectivo USD', icon: '💵', moneda: 'USD' },
-  { value: 'zelle', label: 'Zelle', icon: '🔷', moneda: 'USD' },
-  { value: 'binance', label: 'Binance / USDT', icon: '🟡', moneda: 'USD' },
-  { value: 'nequi', label: 'Nequi', icon: '🟣', moneda: 'COP' },
+  { value: 'zelle_usd', label: 'Zelle', icon: '🔷', moneda: 'USD' },
+  { value: 'binance_usd', label: 'Binance / USDT', icon: '🟡', moneda: 'USD' },
+  { value: 'zinli_usd', label: 'Zinli', icon: '📱', moneda: 'USD' },
+  { value: 'paypal_usd', label: 'PayPal', icon: '🌐', moneda: 'USD' },
+  { value: 'nequi_cop', label: 'Nequi', icon: '🟣', moneda: 'COP' },
   { value: 'pago_movil_bs', label: 'Pago Móvil (Bs)', icon: '📱', moneda: 'BS' },
-  { value: 'transferencia_bs', label: 'Transferencia (Bs)', icon: '🏦', moneda: 'BS' },
-  { value: 'efectivo_bs', label: 'Efectivo Bolívares', icon: '💴', moneda: 'BS' },
+  { value: 'tarjeta_bs', label: 'Tarjeta Bs', icon: '💳', moneda: 'BS' },
   { value: 'efectivo_cop', label: 'Efectivo Pesos', icon: '💶', moneda: 'COP' },
 ];
 

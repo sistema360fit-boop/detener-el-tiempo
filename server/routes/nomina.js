@@ -148,37 +148,34 @@ router.post('/pagar', requireAdmin, async (req, res) => {
       }
     }
 
-    // 3. Integración con Arqueo de Caja: si el pago es en EFECTIVO, registrar como EGRESO
-    const esEfectivo = metodo_pago === 'efectivo_usd' || metodo_pago === 'efectivo';
-    if (esEfectivo) {
-      // El monto del egreso es el salario neto en USD
-      const montoEgresoUSD = salario_neto ?? 0;
+    // 3. Integración con Arqueo de Caja: Registrar pago como EGRESO (para todos los métodos de pago)
+    const montoEgresoUSD = salario_neto ?? 0;
 
-      const { error: gastoError } = await supabase
-        .from('Gasto')
-        .insert({
-          id: crypto.randomUUID(),
-          descripcion: `Nómina: ${empleado_nombre ?? 'Empleado'} (${periodo_inicio ?? 'N/A'} - ${periodo_fin ?? 'N/A'})`,
-          monto: montoEgresoUSD,
-          monto_original: monto_convertido ?? montoEgresoUSD,
-          moneda_original: moneda_pago ?? 'USD',
-          metodo_pago: metodo_pago,
-          categoriaNombre: 'Nómina',
-          fecha: now,
-        });
-      if (gastoError) {
-        console.error('Error registrando egreso en caja:', gastoError);
-        // No bloquear el pago por esto, pero logueamos
-      } else {
-        console.log(`✅ Egreso de nómina registrado en caja: $${montoEgresoUSD} USD`);
-      }
+    const { error: gastoError } = await supabase
+      .from('Gasto')
+      .insert({
+        id: crypto.randomUUID(),
+        descripcion: `Nómina: ${empleado_nombre ?? 'Empleado'} (${periodo_inicio ?? 'N/A'} - ${periodo_fin ?? 'N/A'})`,
+        monto: montoEgresoUSD,
+        monto_original: monto_convertido ?? montoEgresoUSD,
+        moneda_original: moneda_pago ?? 'USD',
+        metodo_pago: metodo_pago,
+        categoriaNombre: 'Nómina',
+        fecha: now,
+      });
+      
+    if (gastoError) {
+      console.error('Error registrando egreso en caja:', gastoError);
+      // No bloquear el pago por esto, pero logueamos
+    } else {
+      console.log(`✅ Egreso de nómina registrado en caja: $${montoEgresoUSD} USD via ${metodo_pago}`);
     }
 
     res.json({
       success: true,
       nomina,
       adelantos_descontados: adelanto_ids.length,
-      egreso_registrado: esEfectivo,
+      egreso_registrado: true,
     });
   } catch (e) {
     console.error('Error procesando pago de nómina', e);

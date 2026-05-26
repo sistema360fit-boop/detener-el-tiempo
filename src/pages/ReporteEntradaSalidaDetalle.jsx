@@ -59,6 +59,12 @@ export default function ReporteEntradaSalidaDetalle() {
     enabled: !!metodo,
   });
 
+  const { data: adelantos = [], isLoading: loadingAdelantos } = useQuery({
+    queryKey: ['adelantos'],
+    queryFn: () => base44.entities.Adelanto.list('-created_date', 1000),
+    enabled: !!metodo,
+  });
+
   if (!metodo || !metodosConfig[metodo]) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
@@ -85,10 +91,21 @@ export default function ReporteEntradaSalidaDetalle() {
 
   const gastosFiltrados = gastos.filter(g => {
     try {
-      const fechaGasto = parseISO(g.fecha_gasto);
+      const fechaGasto = parseISO(g.fecha_gasto || g.fecha);
       const inicio = startOfDay(new Date(fechaInicio));
       const fin = endOfDay(new Date(fechaFin));
       return fechaGasto >= inicio && fechaGasto <= fin && g.afecta_caja !== false;
+    } catch {
+      return false;
+    }
+  });
+
+  const adelantosFiltrados = adelantos.filter(a => {
+    try {
+      const fechaA = parseISO(a.fecha_adelanto || a.fecha || a.createdAt);
+      const inicio = startOfDay(new Date(fechaInicio));
+      const fin = endOfDay(new Date(fechaFin));
+      return fechaA >= inicio && fechaA <= fin;
     } catch {
       return false;
     }
@@ -132,8 +149,22 @@ export default function ReporteEntradaSalidaDetalle() {
     }
   });
 
-  // SALIDAS: Gastos
-  gastosFiltrados.forEach(gasto => {
+  // SALIDAS: Gastos y Adelantos
+  const todosGastosYAdelantos = [
+    ...gastosFiltrados,
+    ...adelantosFiltrados.map(a => ({
+      id: a.id,
+      descripcion: `Adelanto: ${a.empleado || a.empleadoId || 'Empleado'}${a.descripcion ? ' - ' + a.descripcion : ''}`,
+      monto: a.monto || 0,
+      monto_original: a.monto_original || 0,
+      moneda_original: a.moneda_original,
+      metodo_pago: a.metodo_pago,
+      fecha_gasto: a.fecha_adelanto || a.fecha || a.createdAt,
+      categoria: 'Adelanto a Personal'
+    }))
+  ];
+
+  todosGastosYAdelantos.forEach(gasto => {
     if (gasto.metodo_pago === metodo) {
       const esBs = metodo.endsWith('_bs');
       const monto = esBs ? (gasto.monto_original || gasto.monto || 0) : (gasto.monto || 0);
@@ -142,7 +173,7 @@ export default function ReporteEntradaSalidaDetalle() {
         fecha: gasto.fecha_gasto,
         tipo: 'salida',
         subtipo: 'gasto',
-        concepto: gasto.descripcion,
+        concepto: gasto.descripcion || 'Gasto no especificado',
         monto: monto,
         referencia: gasto.comprobante || gasto.id.substring(0, 8),
         categoria: gasto.categoria
@@ -201,7 +232,7 @@ export default function ReporteEntradaSalidaDetalle() {
     toast.success("Reporte exportado exitosamente");
   };
 
-  const isLoading = loadingVentas || loadingPagos || loadingGastos;
+  const isLoading = loadingVentas || loadingPagos || loadingGastos || loadingAdelantos;
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
