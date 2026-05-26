@@ -116,7 +116,12 @@ model Adelanto {
   metodo_pago     String?
   fecha      DateTime @default(now())
   descripcion String?
+  estado          String?  @default("PENDIENTE")
+  fecha_descuento DateTime?
+  nomina_id       String?
   createdAt  DateTime @default(now())
+
+  @@index([estado])
 }
 
 model AlertaStock {
@@ -192,13 +197,39 @@ model CuentaPorCobrar {
 }
 
 model Empleado {
-  id        String   @id @default(uuid())
-  nombre    String
-  usuario   String?  @unique // Username para login
-  password  String?  // Password hasheado para autenticación
-  rol       String?
-  activo    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id           String   @id @default(uuid())
+  nombre       String
+  usuario      String?  @unique // Username para login
+  password     String?  // Password hasheado para autenticación
+  rol          String?
+  activo       Boolean  @default(true)
+  salario_base Float    @default(0)
+  cargo        String?
+  cedula       String?
+  telefono     String?
+  createdAt    DateTime @default(now())
+}
+
+model Nomina {
+  id               String   @id @default(uuid())
+  empleado_id      String?
+  empleado_nombre  String?
+  periodo_inicio   DateTime?
+  periodo_fin      DateTime?
+  salario_base     Float    @default(0)
+  total_adelantos  Float    @default(0)
+  salario_neto     Float    @default(0)
+  metodo_pago      String?
+  moneda_pago      String?  @default("USD")
+  tasa_cambio      Float    @default(1)
+  monto_convertido Float    @default(0)
+  estado           String?  @default("PAGADO")
+  notas            String?
+  fecha_pago       DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  @@index([empleado_id])
+  @@index([fecha_pago])
 }
 
 model Gasto {

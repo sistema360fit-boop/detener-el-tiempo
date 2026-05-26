@@ -33,6 +33,7 @@ router.post('/', requireAdmin, async (req, res) => {
         tasa_cambio: tasa_cambio || null,
         metodo_pago: metodo_pago || metodoPago || null,
         descripcion: notas || descripcion || null,
+        estado: 'PENDIENTE',
         fecha: fecha_adelanto ? new Date(fecha_adelanto).toISOString() : (fecha ? new Date(fecha).toISOString() : new Date().toISOString())
       })
       .select()
@@ -72,8 +73,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (notas || descripcion !== undefined) updateData.descripcion = notas || descripcion;
     if (fecha_adelanto || fecha) updateData.fecha = fecha_adelanto ? new Date(fecha_adelanto).toISOString() : new Date(fecha).toISOString();
     
-    // Add estado if it's sent (even though it's not in the DB, wait, we don't have 'estado' in DB!)
-    
+    // Campos de estado para integración con nómina
+    if (estado !== undefined) updateData.estado = estado;
+    if (fecha_descuento !== undefined) updateData.fecha_descuento = fecha_descuento;
     const { data, error } = await supabase
       .from('Adelanto')
       .update(updateData)

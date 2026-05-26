@@ -26,6 +26,7 @@ import Home from './pages/Home';
 import ImprimirComanda from './pages/ImprimirComanda';
 import Ingredientes from './pages/Ingredientes';
 import Personal from './pages/Personal';
+import Nomina from './pages/Nomina';
 import Platos from './pages/Platos';
 import ProcesarVenta from './pages/ProcesarVenta';
 import RecetasPrimarias from './pages/RecetasPrimarias';
@@ -60,6 +61,7 @@ export const PAGES = {
     "ImprimirComanda": ImprimirComanda,
     "Ingredientes": Ingredientes,
     "Personal": Personal,
+    "Nomina": Nomina,
     "Platos": Platos,
     "ProcesarVenta": ProcesarVenta,
     "RecetasPrimarias": RecetasPrimarias,

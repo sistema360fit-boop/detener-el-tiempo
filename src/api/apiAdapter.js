@@ -113,6 +113,7 @@ const endpointMap = {
   'DetalleRecetaSecundaria': '/detallerecetasecundarias',
   'Empleado': '/personal',
   'TasaCambio': '/tasas-cambio',
+  'Nomina': '/nomina',
 };
 
 // Convertir datos del formato localStorage al formato servidor
@@ -573,6 +574,7 @@ export const api = {
       "Comanda",
       "MetodoPago",
       "CompraIngrediente",
+      "Nomina",
     ].reduce((acc, entity) => {
       const endpoint = endpointMap[entity] || `/${entity.toLowerCase()}s`;
       

@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   Landmark,
   Shield,
-  RefreshCw
+  RefreshCw,
+  BadgeDollarSign
 } from "lucide-react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 
@@ -49,6 +50,7 @@ const menuItems = {
     { title: "Gastos", url: "/gastos", icon: DollarSign, permission: 'Gastos' },
     { title: "Personal", url: "/personal", icon: Users, permission: 'Personal' },
     { title: "Adelantos", url: "/adelantos", icon: DollarSign, permission: 'Adelantos' },
+    { title: "Nómina", url: "/nomina", icon: BadgeDollarSign, permission: 'Nomina' },
   ],
   recetas: [
     { title: "Recetas Primarias", url: "/recetas-primarias", icon: ClipboardList, permission: 'RecetasPrimarias' },

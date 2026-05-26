@@ -39,6 +39,7 @@ export const PAGE_PERMISSIONS = {
   'Personal': ['administrador'],
   'Gastos': ['administrador'],
   'Adelantos': ['administrador'],
+  'Nomina': ['administrador'],
   'ComprasIngredientes': ['administrador'],
   
   // Finanzas (solo administrador)

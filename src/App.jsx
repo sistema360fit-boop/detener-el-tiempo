@@ -79,6 +79,7 @@ import ReportesDiarios from './pages/ReportesDiarios';
 import ReportesEntradaSalida from './pages/ReportesEntradaSalida';
 import ReportesMetodosPago from './pages/ReportesMetodosPago';
 import Personal from './pages/Personal';
+import Nomina from './pages/Nomina';
 import CalculadoraTasas from './components/CalculadoraTasas';
 
 // --- COMPONENTE DE DISEÑO PROTEGIDO ---
@@ -160,6 +161,7 @@ function App() {
         <Route path="/gestion-tasas" element={<RoleProtectedRoute pageName="GestionTasas"><ProtectedLayout><GestionTasas /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/configuracion-retencion" element={<RoleProtectedRoute pageName="ConfiguracionRetencion"><ProtectedLayout><ConfiguracionRetencion /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/personal" element={<RoleProtectedRoute pageName="Personal"><ProtectedLayout><Personal /></ProtectedLayout></RoleProtectedRoute>} />
+        <Route path="/nomina" element={<RoleProtectedRoute pageName="Nomina"><ProtectedLayout><Nomina /></ProtectedLayout></RoleProtectedRoute>} />
         {/* Rutas sin sidebar */}
         <Route path="/estado-cuenta-detalle" element={<RoleProtectedRoute pageName="EstadoCuentaDetalle"><ProtectedLayout><EstadoCuentaDetalle /></ProtectedLayout></RoleProtectedRoute>} />
         <Route path="/estados-cuenta" element={<RoleProtectedRoute pageName="EstadosCuenta"><ProtectedLayout><EstadosCuenta /></ProtectedLayout></RoleProtectedRoute>} />
