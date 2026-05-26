@@ -173,8 +173,10 @@ export default function HistorialNomina({ nominas = [], adelantos = [], isLoadin
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {adelantos.map((adel) => {
-                      const fechaAdelanto = adel.fecha_adelanto ? format(new Date(adel.fecha_adelanto), "dd MMM yyyy", { locale: es }) : '—';
+                      const fechaReal = adel.fecha_adelanto || adel.fecha;
+                      const fechaAdelanto = fechaReal ? format(new Date(fechaReal), "dd MMM yyyy", { locale: es }) : '—';
                       const estado = adel.estado?.toUpperCase() || 'PENDIENTE';
+                      const empNombre = adel.empleado_nombre || adel.empleado || 'Desconocido';
                       
                       return (
                         <tr key={adel.id} className="hover:bg-emerald-50/30 transition-colors">
@@ -187,9 +189,9 @@ export default function HistorialNomina({ nominas = [], adelantos = [], isLoadin
                           <td className="px-5 py-3.5">
                             <div className="flex items-center gap-2.5">
                               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow">
-                                {adel.empleado_nombre?.charAt(0)?.toUpperCase() ?? '?'}
+                                {empNombre.charAt(0).toUpperCase()}
                               </div>
-                              <span className="font-medium text-gray-900">{adel.empleado_nombre}</span>
+                              <span className="font-medium text-gray-900">{empNombre}</span>
                             </div>
                           </td>
                           <td className="px-5 py-3.5 text-right font-bold text-emerald-700">
@@ -206,7 +208,7 @@ export default function HistorialNomina({ nominas = [], adelantos = [], isLoadin
                             </span>
                           </td>
                           <td className="px-5 py-3.5 text-gray-500 text-xs max-w-xs truncate">
-                            {adel.notas || <span className="italic text-gray-300">Sin notas</span>}
+                            {adel.notas || adel.descripcion || <span className="italic text-gray-300">Sin notas</span>}
                           </td>
                           <td className="px-5 py-3.5 text-center">
                             {estado === 'DESCONTADO' ? (
