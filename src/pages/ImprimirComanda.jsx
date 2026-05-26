@@ -39,8 +39,8 @@ export default function ImprimirComanda() {
     );
   }
 
-  // Calcular total (SIN IVA)
-  const total = detalles.reduce((sum, d) => sum + (d.subtotal || 0), 0);
+  // Calcular total si no viene en la comanda
+  const total = detalles.reduce((sum, d) => sum + ((d.precio || 0) * (d.cantidad || 1)), 0);
 
   const fechaComanda = comanda.fecha_apertura 
     ? format(parseISO(comanda.fecha_apertura), "dd/MM/yyyy", { locale: es })
@@ -178,7 +178,7 @@ export default function ImprimirComanda() {
               <div key={idx} className="my-2 pb-2 border-b border-dotted border-gray-300">
                 <div className="flex justify-between">
                   <span><strong>{detalle.cantidad}x</strong> {detalle.plato_nombre}</span>
-                  <span>${detalle.subtotal?.toFixed(2)}</span>
+                  <span>${((detalle.precio || 0) * (detalle.cantidad || 1)).toFixed(2)}</span>
                 </div>
                 {detalle.notas_plato && (
                   <div className="text-[10px] text-gray-600 italic">

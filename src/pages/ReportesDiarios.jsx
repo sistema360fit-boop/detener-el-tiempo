@@ -337,8 +337,8 @@ export default function ReportesDiarios() {
           platos: detalles.map(d => ({
             nombre: d.plato_nombre,
             cantidad: d.cantidad,
-            precio_unitario: d.precio_unitario,
-            subtotal: d.subtotal
+            precio_unitario: d.precio,
+            subtotal: (d.precio || 0) * (d.cantidad || 1)
           })),
           cantidad_platos: detalles.reduce((sum, d) => sum + d.cantidad, 0)
         };

@@ -474,7 +474,7 @@ export default function ComandaDetalle({
                       )}
                     </div>
                     <span className="font-black text-amber-600 text-lg flex-shrink-0">
-                      ${(detalle.subtotal ?? 0).toFixed(2)}
+                      ${((detalle.precio || 0) * (detalle.cantidad || 1)).toFixed(2)}
                     </span>
                   </div>
 

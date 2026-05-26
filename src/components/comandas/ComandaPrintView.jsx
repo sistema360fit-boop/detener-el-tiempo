@@ -21,8 +21,8 @@ export default function ComandaPrintView({
 
   if (!comanda) return null;
 
-  // Total SIN IVA
-  const total = detalles.reduce((sum, d) => sum + (d.subtotal || 0), 0);
+  // Calcular total si no viene en la comanda
+  const total = detalles.reduce((sum, d) => sum + ((d.precio || 0) * (d.cantidad || 1)), 0);
 
   const fechaComanda = comanda.fecha_apertura 
     ? format(parseISO(comanda.fecha_apertura), "dd/MM/yyyy", { locale: es })
@@ -157,12 +157,12 @@ export default function ComandaPrintView({
                   <div key={idx} className="item">
                     <div className="item-row">
                       <span><strong>{detalle.cantidad}x</strong> {detalle.plato_nombre}</span>
-                      <span>${(detalle.subtotal ?? 0).toFixed(2)}</span>
+                      <span>${((detalle.precio || 0) * (detalle.cantidad || 1)).toFixed(2)}</span>
                     </div>
                     {detalle.notas_plato && (
                       <div className="item-nota">Nota: {detalle.notas_plato}</div>
                     )}
-                    <div className="item-precio">${(detalle.precio_unitario ?? 0).toFixed(2)} c/u</div>
+                    <div className="item-precio">${(detalle.precio ?? 0).toFixed(2)} c/u</div>
                   </div>
                 ))}
               </div>
