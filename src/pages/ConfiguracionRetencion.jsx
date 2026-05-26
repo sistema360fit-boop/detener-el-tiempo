@@ -19,11 +19,26 @@ export default function ConfiguracionRetencion() {
   const [limpiando, setLimpiando] = useState(false);
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [expandedReport, setExpandedReport] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: resumen, isLoading: loadingResumen, refetch } = useQuery({
     queryKey: ['resumen-depuracion'],
     queryFn: () => api.mantenimiento.getResumen(),
+  });
+
+  const { data: reportes, isLoading: loadingReportes, refetch: refetchReportes } = useQuery({
+    queryKey: ['reportes-trimestrales'],
+    queryFn: async () => {
+      const token = localStorage.getItem('jwt_token') || localStorage.getItem('token');
+      const res = await fetch('/api/cierre-trimestral', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) throw new Error('Error al obtener el historial de cierres');
+      return res.json();
+    }
   });
 
   const ejecutarCierreTrimestral = async () => {
@@ -58,6 +73,7 @@ export default function ConfiguracionRetencion() {
       // Refrescar estado global
       queryClient.invalidateQueries();
       refetch();
+      refetchReportes();
       
       setIsSuccess(true);
       toast.success("Cierre trimestral ejecutado y Excel descargado correctamente.");
@@ -281,6 +297,160 @@ export default function ConfiguracionRetencion() {
 
           </div>
         </div>
+
+        {/* Histórico Trimestral */}
+        <Card className="border-none shadow-xl shadow-gray-200/50 bg-white overflow-hidden rounded-3xl">
+          <CardHeader className="p-8 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-indigo-500" />
+                Historial de Cierres Trimestrales
+              </CardTitle>
+              <p className="text-sm text-gray-500 mt-1">
+                Registro consolidado de los reportes financieros trimestrales generados.
+              </p>
+            </div>
+            {reportes && reportes.length > 0 && (
+              <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold shrink-0 self-start sm:self-center">
+                {reportes.length} {reportes.length === 1 ? 'Reporte' : 'Reportes'}
+              </span>
+            )}
+          </CardHeader>
+          <CardContent className="p-8">
+            {loadingReportes ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+              </div>
+            ) : !reportes || reportes.length === 0 ? (
+              <div className="text-center py-12 space-y-3">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-gray-400">
+                  <Database className="w-8 h-8" />
+                </div>
+                <h3 className="font-bold text-gray-700">No hay cierres registrados</h3>
+                <p className="text-sm text-gray-500 max-w-sm mx-auto">
+                  Los cierres trimestrales generados en el sistema aparecerán listados aquí para consulta y auditoría de sus desgloses.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                        <th className="p-4">Período</th>
+                        <th className="p-4">Rango de Fechas</th>
+                        <th className="p-4">Ingresos / Egresos</th>
+                        <th className="p-4">Adelantos / Nóminas</th>
+                        <th className="p-4 text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-sm">
+                      {reportes.map((report) => {
+                        const isExpanded = expandedReport === report.id;
+                        return (
+                          <React.Fragment key={report.id}>
+                            <tr className="hover:bg-gray-50/50 transition-colors">
+                              <td className="p-4 font-bold text-gray-900">{report.periodo}</td>
+                              <td className="p-4 text-gray-600">
+                                <div className="text-xs">
+                                  Desde: {format(parseISO(report.fechaInicio), "dd/MM/yyyy HH:mm", { locale: es })}
+                                </div>
+                                <div className="text-xs mt-0.5">
+                                  Hasta: {format(parseISO(report.fechaFin), "dd/MM/yyyy HH:mm", { locale: es })}
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                <div className="text-xs text-emerald-600 font-semibold">
+                                  Ingresos: ${(report.totalIngresosCaja || 0).toFixed(2)}
+                                </div>
+                                <div className="text-xs text-rose-600 font-semibold mt-0.5">
+                                  Egresos: ${(report.totalEgresosCaja || 0).toFixed(2)}
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                <div className="text-xs text-indigo-600 font-semibold">
+                                  Adelantos: ${(report.totalAdelantos || 0).toFixed(2)}
+                                </div>
+                                <div className="text-xs text-purple-600 font-semibold mt-0.5">
+                                  Nóminas: ${(report.totalNominasPagadas || 0).toFixed(2)}
+                                </div>
+                              </td>
+                              <td className="p-4 text-center">
+                                <button
+                                  onClick={() => setExpandedReport(isExpanded ? null : report.id)}
+                                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+                                    isExpanded 
+                                      ? 'bg-indigo-100 text-indigo-700' 
+                                      : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600'
+                                  }`}
+                                >
+                                  {isExpanded ? 'Ocultar Desglose' : 'Ver Desglose'}
+                                </button>
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr className="bg-gray-50/40">
+                                <td colSpan="5" className="p-6 border-t border-gray-100">
+                                  <div className="space-y-4">
+                                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                      Desglose Detallado de Métodos de Pago
+                                    </h4>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                                      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Efectivo USD</p>
+                                        <p className="text-sm font-black text-gray-800 mt-1">${(report.efectivo_usd || 0).toFixed(2)}</p>
+                                      </div>
+                                      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Zelle</p>
+                                        <p className="text-sm font-black text-indigo-600 mt-1">${(report.zelle || 0).toFixed(2)}</p>
+                                      </div>
+                                      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Binance (USDT)</p>
+                                        <p className="text-sm font-black text-amber-500 mt-1">${(report.binance || 0).toFixed(2)}</p>
+                                      </div>
+                                      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">PayPal</p>
+                                        <p className="text-sm font-black text-blue-600 mt-1">${(report.paypal || 0).toFixed(2)}</p>
+                                      </div>
+                                      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Zinli</p>
+                                        <p className="text-sm font-black text-teal-600 mt-1">${(report.zinli || 0).toFixed(2)}</p>
+                                      </div>
+                                      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nequi (COP)</p>
+                                        <p className="text-sm font-black text-purple-600 mt-1">{(report.nequi || 0).toLocaleString()} COP</p>
+                                      </div>
+                                      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Efectivo COP</p>
+                                        <p className="text-sm font-black text-emerald-600 mt-1">{(report.efectivo_cop || 0).toLocaleString()} COP</p>
+                                      </div>
+                                      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Efectivo BS</p>
+                                        <p className="text-sm font-black text-rose-500 mt-1">Bs {(report.efectivo_bs || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                      </div>
+                                      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Pago Móvil (BS)</p>
+                                        <p className="text-sm font-black text-blue-700 mt-1">Bs {(report.pago_movil || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                      </div>
+                                      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm text-center">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Punto de Venta (BS)</p>
+                                        <p className="text-sm font-black text-slate-700 mt-1">Bs {(report.punto_venta || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Modal de Confirmación Moderno */}

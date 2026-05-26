@@ -354,6 +354,16 @@ model ReporteTrimestral {
   totalAdelantos      Float
   totalIngresosCaja   Float
   totalEgresosCaja    Float
+  zelle               Float    @default(0)
+  binance             Float    @default(0)
+  nequi               Float    @default(0)
+  paypal              Float    @default(0)
+  zinli               Float    @default(0)
+  efectivo_usd        Float    @default(0)
+  efectivo_cop        Float    @default(0)
+  efectivo_bs         Float    @default(0)
+  pago_movil          Float    @default(0)
+  punto_venta         Float    @default(0)
   createdAt           DateTime @default(now())
 }
 

@@ -9,9 +9,9 @@ const prisma = new PrismaClient();
 router.post('/ejecutar', requireAdmin, async (req, res) => {
   try {
     // 1. Recopilar datos (Historial Cerrado)
-    const tresMesesAtras = new Date();
-    tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
-    const fechaFin = tresMesesAtras;
+    // Permitir fechaLimite/fechaFin desde body o usar la fecha y hora actuales.
+    const body = req.body || {};
+    const fechaFin = body.fechaLimite ? new Date(body.fechaLimite) : (body.fechaFin ? new Date(body.fechaFin) : new Date());
 
     // Obtener la fecha de inicio a partir de la última depuración
     const ultimoReporte = await prisma.reporteTrimestral.findFirst({
@@ -92,8 +92,7 @@ router.post('/ejecutar', requireAdmin, async (req, res) => {
       }
     });
 
-    // Cuentas por Cobrar (Solo las pagadas para eliminar, pero para el reporte quizás todas?)
-    // "ni cuentas por cobrar que aún tengan saldo a favor o estén pendientes. Solo se purga el historial cerrado."
+    // Cuentas por Cobrar (Solo las pagadas para eliminar)
     const cxcPagadas = await prisma.cuentaPorCobrar.findMany({
       where: {
         OR: [
@@ -122,7 +121,7 @@ router.post('/ejecutar', requireAdmin, async (req, res) => {
       }
     });
 
-    // Cuentas por cobrar e historial general para el reporte (todas las transacciones de los ultimos 3 meses o todo el historial que se va a purgar)
+    // Cuentas por cobrar e historial general para el reporte
     const todasCxc = await prisma.cuentaPorCobrar.findMany({
       where: {
         fecha_creacion: {
@@ -176,38 +175,84 @@ router.post('/ejecutar', requireAdmin, async (req, res) => {
     const sheetResumen = workbook.addWorksheet('Resumen Financiero');
     sheetResumen.columns = [
       { header: 'Concepto', key: 'concepto' },
-      { header: 'Total USD (Efectivo/Zelle/Otros)', key: 'usd' },
-      { header: 'Total Bs (Tarjeta/Pago Móvil)', key: 'bs' }
+      { header: 'Total USD (Dólares)', key: 'usd' },
+      { header: 'Total Bs (Bolívares)', key: 'bs' },
+      { header: 'Total COP (Pesos Colombianos)', key: 'cop' }
     ];
 
-    let totalVentasUSD = 0;
-    let totalVentasBs = 0;
+    const metodosTotals = {
+      zelle: 0,
+      binance: 0,
+      nequi: 0,
+      paypal: 0,
+      zinli: 0,
+      efectivo_usd: 0,
+      efectivo_cop: 0,
+      efectivo_bs: 0,
+      pago_movil: 0,
+      punto_venta: 0
+    };
+
+    const categorizarIngreso = (metodoStr, montoUsd, montoOriginal) => {
+      if (!metodoStr) return;
+      const m = metodoStr.toLowerCase();
+      
+      if (m.includes('zelle')) {
+        metodosTotals.zelle += montoUsd;
+      } else if (m.includes('binance')) {
+        metodosTotals.binance += montoUsd;
+      } else if (m.includes('nequi')) {
+        metodosTotals.nequi += montoOriginal || montoUsd;
+      } else if (m.includes('paypal')) {
+        metodosTotals.paypal += montoUsd;
+      } else if (m.includes('zinli')) {
+        metodosTotals.zinli += montoUsd;
+      } else if (m.includes('efectivo')) {
+        if (m.includes('usd')) {
+          metodosTotals.efectivo_usd += montoUsd;
+        } else if (m.includes('cop') || m.includes('pesos')) {
+          metodosTotals.efectivo_cop += montoOriginal || montoUsd;
+        } else if (m.includes('bs') || m.includes('bolivar')) {
+          metodosTotals.efectivo_bs += montoOriginal || montoUsd;
+        } else {
+          metodosTotals.efectivo_usd += montoUsd;
+        }
+      } else if (m.includes('pago_movil') || m.includes('pago_movil_bs')) {
+        metodosTotals.pago_movil += montoOriginal || montoUsd;
+      } else if (m.includes('tarjeta') || m.includes('punto') || m.includes('tarjeta_bs')) {
+        metodosTotals.punto_venta += montoOriginal || montoUsd;
+      }
+    };
+
     ventas.forEach(v => {
-      const isBs = v.metodo_pago && (v.metodo_pago.toLowerCase().includes('bs') || v.metodo_pago.toLowerCase().includes('bolivar') || v.metodo_pago.toLowerCase().includes('pago_movil') || v.metodo_pago.toLowerCase().includes('punto'));
-      if (isBs) {
-        totalVentasBs += (v.monto_original || v.total_venta || 0); // Asumiendo que monto_original guarda el valor en Bs cuando es método Bs
-      } else if (v.metodo_pago === 'mixto') {
-        // En mixtos, debemos buscar en la tabla PagoMixto
+      if (v.metodo_pago === 'mixto') {
         const mixtos = pagosMixtos.filter(pm => pm.ventaId === v.id);
         mixtos.forEach(pm => {
-          const pmIsBs = pm.metodo_pago && (pm.metodo_pago.toLowerCase().includes('bs') || pm.metodo_pago.toLowerCase().includes('bolivar'));
-          if (pmIsBs) {
-            totalVentasBs += (pm.monto_original || pm.monto || 0);
-          } else {
-            totalVentasUSD += (pm.monto_usd || pm.monto || 0);
-          }
+          let valUsd = pm.monto_usd || pm.monto || 0;
+          let valOrig = pm.monto_original || pm.monto || 0;
+          categorizarIngreso(pm.metodo_pago, valUsd, valOrig);
         });
       } else {
-        totalVentasUSD += (v.total_venta || 0);
+        let valUsd = v.total_venta || 0;
+        let valOrig = v.monto_original || v.total_ves || v.total_cop || v.total_venta || 0;
+        categorizarIngreso(v.metodo_pago, valUsd, valOrig);
       }
     });
 
+    const totalVentasUSD = metodosTotals.efectivo_usd + metodosTotals.zelle + metodosTotals.binance + metodosTotals.paypal + metodosTotals.zinli;
+    const totalVentasBs = metodosTotals.efectivo_bs + metodosTotals.pago_movil + metodosTotals.punto_venta;
+    const totalVentasCOP = metodosTotals.nequi + metodosTotals.efectivo_cop;
+
     let totalAdelantosUSD = 0;
     let totalAdelantosBs = 0;
+    let totalAdelantosCOP = 0;
     adelantos.forEach(a => {
-      const isBs = a.metodo_pago && a.metodo_pago.toLowerCase().includes('bs');
+      const isBs = a.metodo_pago && (a.metodo_pago.toLowerCase().includes('bs') || a.metodo_pago.toLowerCase().includes('bolivar') || a.metodo_pago.toLowerCase().includes('pago_movil'));
+      const isCop = a.metodo_pago && (a.metodo_pago.toLowerCase().includes('cop') || a.metodo_pago.toLowerCase().includes('nequi'));
       if (isBs) {
         totalAdelantosBs += (a.monto_original || a.monto || 0);
+      } else if (isCop) {
+        totalAdelantosCOP += (a.monto_original || a.monto || 0);
       } else {
         totalAdelantosUSD += (a.monto || 0);
       }
@@ -215,26 +260,40 @@ router.post('/ejecutar', requireAdmin, async (req, res) => {
 
     let totalGastosUSD = 0;
     let totalGastosBs = 0;
+    let totalGastosCOP = 0;
     gastos.forEach(g => {
-      const isBs = g.metodo_pago && g.metodo_pago.toLowerCase().includes('bs');
+      const isBs = g.metodo_pago && (g.metodo_pago.toLowerCase().includes('bs') || g.metodo_pago.toLowerCase().includes('bolivar') || g.metodo_pago.toLowerCase().includes('pago_movil'));
+      const isCop = g.metodo_pago && (g.metodo_pago.toLowerCase().includes('cop') || g.metodo_pago.toLowerCase().includes('nequi'));
       if (isBs) {
         totalGastosBs += (g.monto_original || g.monto || 0);
+      } else if (isCop) {
+        totalGastosCOP += (g.monto_original || g.monto || 0);
       } else {
         totalGastosUSD += (g.monto || 0);
       }
     });
 
     sheetResumen.addRows([
-      { concepto: 'Ingresos por Ventas', usd: totalVentasUSD.toFixed(2), bs: totalVentasBs.toFixed(2) },
-      { concepto: 'Adelantos de Nómina', usd: totalAdelantosUSD.toFixed(2), bs: totalAdelantosBs.toFixed(2) },
-      { concepto: 'Gastos Operativos', usd: totalGastosUSD.toFixed(2), bs: totalGastosBs.toFixed(2) }
+      { concepto: 'Ventas - Efectivo USD', usd: metodosTotals.efectivo_usd.toFixed(2), bs: '0.00', cop: '0.00' },
+      { concepto: 'Ventas - Zelle (USD)', usd: metodosTotals.zelle.toFixed(2), bs: '0.00', cop: '0.00' },
+      { concepto: 'Ventas - Binance USDT (USD)', usd: metodosTotals.binance.toFixed(2), bs: '0.00', cop: '0.00' },
+      { concepto: 'Ventas - PayPal (USD)', usd: metodosTotals.paypal.toFixed(2), bs: '0.00', cop: '0.00' },
+      { concepto: 'Ventas - Zinli (USD)', usd: metodosTotals.zinli.toFixed(2), bs: '0.00', cop: '0.00' },
+      { concepto: 'Ventas - Nequi (COP)', usd: '0.00', bs: '0.00', cop: metodosTotals.nequi.toFixed(2) },
+      { concepto: 'Ventas - Efectivo COP', usd: '0.00', bs: '0.00', cop: metodosTotals.efectivo_cop.toFixed(2) },
+      { concepto: 'Ventas - Efectivo BS', usd: '0.00', bs: metodosTotals.efectivo_bs.toFixed(2), cop: '0.00' },
+      { concepto: 'Ventas - Pago Móvil (BS)', usd: '0.00', bs: metodosTotals.pago_movil.toFixed(2), cop: '0.00' },
+      { concepto: 'Ventas - Punto de Venta (BS)', usd: '0.00', bs: metodosTotals.punto_venta.toFixed(2), cop: '0.00' },
+      { concepto: 'Adelantos de Nómina (Total)', usd: totalAdelantosUSD.toFixed(2), bs: totalAdelantosBs.toFixed(2), cop: totalAdelantosCOP.toFixed(2) },
+      { concepto: 'Gastos Operativos (Total)', usd: totalGastosUSD.toFixed(2), bs: totalGastosBs.toFixed(2), cop: totalGastosCOP.toFixed(2) }
     ]);
     
     // Fila de totales
     const rowTotal = sheetResumen.addRow({
       concepto: 'TOTAL NETO (Ventas - Adelantos - Gastos)',
       usd: (totalVentasUSD - totalAdelantosUSD - totalGastosUSD).toFixed(2),
-      bs: (totalVentasBs - totalAdelantosBs - totalGastosBs).toFixed(2)
+      bs: (totalVentasBs - totalAdelantosBs - totalGastosBs).toFixed(2),
+      cop: (totalVentasCOP - totalAdelantosCOP - totalGastosCOP).toFixed(2)
     });
     rowTotal.font = { bold: true };
     styleHeader(sheetResumen);
@@ -411,7 +470,17 @@ router.post('/ejecutar', requireAdmin, async (req, res) => {
           totalNominasPagadas,
           totalAdelantos,
           totalIngresosCaja,
-          totalEgresosCaja
+          totalEgresosCaja,
+          zelle: metodosTotals.zelle,
+          binance: metodosTotals.binance,
+          nequi: metodosTotals.nequi,
+          paypal: metodosTotals.paypal,
+          zinli: metodosTotals.zinli,
+          efectivo_usd: metodosTotals.efectivo_usd,
+          efectivo_cop: metodosTotals.efectivo_cop,
+          efectivo_bs: metodosTotals.efectivo_bs,
+          pago_movil: metodosTotals.pago_movil,
+          punto_venta: metodosTotals.punto_venta
         }
       });
 
@@ -476,6 +545,18 @@ router.post('/ejecutar', requireAdmin, async (req, res) => {
 
   } catch (error) {
     console.error('Error en Cierre Trimestral:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/', requireAdmin, async (req, res) => {
+  try {
+    const reportes = await prisma.reporteTrimestral.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(reportes);
+  } catch (error) {
+    console.error('Error al obtener reportes trimestrales:', error);
     res.status(500).json({ error: error.message });
   }
 });
