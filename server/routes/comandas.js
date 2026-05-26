@@ -154,7 +154,8 @@ router.post('/:id/pagar', requireAdmin, async (req, res) => {
       descuentoMonto = 0,
       totalUSD,
       totalVES,
-      totalCOP
+      totalCOP,
+      datosCuenta
     } = req.body;
 
     // 1. Obtener la comanda y sus detalles
@@ -213,6 +214,28 @@ router.post('/:id/pagar', requireAdmin, async (req, res) => {
       }));
       const { error: pError } = await supabase.from('PagoMixto').insert(pagosData);
       if (pError) console.error("Error insertando pago mixto:", pError);
+    }
+
+    // 4.5 Crear Cuenta por Cobrar si aplica
+    if (metodoPago === 'cuentas_por_cobrar' && datosCuenta) {
+      const cuentaId = crypto.randomUUID();
+      const { error: cuentaErr } = await supabase.from('CuentaPorCobrar').insert({
+        id: cuentaId,
+        clienteNombre: datosCuenta.cliente_nombre || 'Cliente sin nombre',
+        cliente_telefono: datosCuenta.cliente_telefono || null,
+        vencimiento: datosCuenta.fecha_vencimiento ? new Date(datosCuenta.fecha_vencimiento).toISOString() : null,
+        monto: totalUSD,
+        monto_total: totalUSD,
+        monto_pendiente: totalUSD,
+        monto_descontado: 0,
+        estado: 'pendiente',
+        comanda_numero: comanda.numero_comanda,
+        fecha_creacion: new Date().toISOString()
+      });
+      if (cuentaErr) {
+        console.error("Error creando CuentaPorCobrar:", cuentaErr);
+        throw cuentaErr;
+      }
     }
 
     // 5. 🔥 DESCONTAR INVENTARIO (EN EL SERVIDOR)

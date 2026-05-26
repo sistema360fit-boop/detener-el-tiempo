@@ -199,7 +199,8 @@ export default function Comandas() {
         descuentoMonto,
         totalUSD,
         totalVES,
-        totalCOP
+        totalCOP,
+        datosCuenta
       });
 
       return { 
