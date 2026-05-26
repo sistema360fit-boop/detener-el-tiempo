@@ -353,7 +353,11 @@ export default function Nomina() {
             </Card>
           </>
         ) : (
-          <HistorialNomina nominas={nominas} isLoading={loadingNominas} />
+          <HistorialNomina 
+            nominas={nominas} 
+            adelantos={adelantos} 
+            isLoading={loadingNominas} 
+          />
         )}
 
         {/* ─── MODAL DE PAGO ───────────────────────────────────────── */}
