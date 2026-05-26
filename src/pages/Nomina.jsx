@@ -122,10 +122,11 @@ export default function Nomina() {
     const map = {};
     adelantos.forEach(a => {
       const estado = a.estado ?? 'PENDIENTE';
-      if (estado === 'PENDIENTE' && a.empleadoId) {
-        if (!map[a.empleadoId]) map[a.empleadoId] = { total: 0, count: 0 };
-        map[a.empleadoId].total += (a.monto ?? 0);
-        map[a.empleadoId].count += 1;
+      const empId = a.empleado_id || a.empleadoId;
+      if (estado === 'PENDIENTE' && empId) {
+        if (!map[empId]) map[empId] = { total: 0, count: 0 };
+        map[empId].total += (a.monto ?? 0);
+        map[empId].count += 1;
       }
     });
     return map;
