@@ -34,7 +34,7 @@ export default function ModalPagarNomina({ open, onClose, previewData, onConfirm
   const [periodoFin, setPeriodoFin] = useState('');
   const [notas, setNotas] = useState('');
 
-  const { empleado, adelantos = [], totalAdelantos, salarioNeto, tasa } = previewData ?? {};
+  const { empleado, adelantos = [], totalAdelantos, cuentas = [], totalCuentas, salarioNeto, tasa } = previewData ?? {};
 
   // Autoselect currency based on payment method
   useEffect(() => {
@@ -66,6 +66,8 @@ export default function ModalPagarNomina({ open, onClose, previewData, onConfirm
       salario_base: empleado?.salario_base ?? 0,
       adelanto_ids: adelantos.map(a => a.id),
       total_adelantos: totalAdelantos ?? 0,
+      cuenta_ids: cuentas.map(c => c.id),
+      total_cuentas: totalCuentas ?? 0,
       salario_neto: salarioNeto ?? 0,
       metodo_pago: metodoPago,
       moneda_pago: monedaPago,
@@ -143,6 +145,31 @@ export default function ModalPagarNomina({ open, onClose, previewData, onConfirm
                 <div className="flex justify-between items-center pl-4 border-t border-dashed border-gray-200 pt-2">
                   <span className="text-sm font-medium text-gray-600">Total descontado</span>
                   <span className="font-bold text-amber-700">-${(totalAdelantos ?? 0).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Cuentas por Cobrar (Créditos) */}
+            {cuentas.length > 0 && (
+              <div className="border-t border-gray-200 pt-3 space-y-2">
+                <p className="text-xs font-semibold text-rose-700 flex items-center gap-1">
+                  <TrendingDown className="w-3.5 h-3.5" />
+                  Créditos a descontar ({cuentas.length})
+                </p>
+                {cuentas.map((c, i) => (
+                  <div key={c.id || i} className="flex justify-between items-center pl-4 text-sm">
+                    <span className="text-gray-500 truncate max-w-[60%]">
+                      {c.comanda_numero ? `Comanda #${c.comanda_numero}` : `Crédito ${i + 1}`}
+                      <span className="text-gray-300 ml-1 text-xs">
+                        {c.fecha_creacion ? format(new Date(c.fecha_creacion), 'dd/MM', { locale: es }) : ''}
+                      </span>
+                    </span>
+                    <span className="font-semibold text-rose-600">-${(c.monto_pendiente ?? c.monto ?? 0).toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center pl-4 border-t border-dashed border-gray-200 pt-2">
+                  <span className="text-sm font-medium text-gray-600">Total créditos</span>
+                  <span className="font-bold text-rose-700">-${(totalCuentas ?? 0).toFixed(2)}</span>
                 </div>
               </div>
             )}

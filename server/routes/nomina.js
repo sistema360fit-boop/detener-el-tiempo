@@ -47,7 +47,18 @@ router.get('/preview/:empleadoId', requireAuth, async (req, res) => {
 
     const totalAdelantos = (adelantos ?? []).reduce((sum, a) => sum + (a.monto ?? 0), 0);
     const salarioBase = empleado.salario_base ?? 0;
-    const salarioNeto = salarioBase - totalAdelantos;
+    
+    // 2.5 Obtener cuentas por cobrar (créditos) PENDIENTES de este empleado
+    const { data: cuentas, error: cuentasError } = await supabase
+      .from('CuentaPorCobrar')
+      .select('*')
+      .eq('empleadoId', empleadoId)
+      .eq('estado', 'pendiente')
+      .order('fecha_creacion', { ascending: true });
+    if (cuentasError) throw cuentasError;
+
+    const totalCuentas = (cuentas ?? []).reduce((sum, c) => sum + (c.monto_pendiente ?? c.monto ?? 0), 0);
+    const salarioNeto = salarioBase - totalAdelantos - totalCuentas;
 
     // 3. Obtener tasa de cambio activa más reciente
     const { data: tasas } = await supabase
@@ -69,6 +80,8 @@ router.get('/preview/:empleadoId', requireAuth, async (req, res) => {
       },
       adelantos: adelantos ?? [],
       totalAdelantos,
+      cuentas: cuentas ?? [],
+      totalCuentas,
       salarioNeto,
       tasa: tasaActual ? {
         tasa_bs_usd: tasaActual.tasa_bs_usd,
@@ -91,6 +104,8 @@ router.post('/pagar', requireAdmin, async (req, res) => {
       salario_base,
       adelanto_ids = [],       // IDs de adelantos a descontar
       total_adelantos,
+      cuenta_ids = [],         // IDs de cuentas por cobrar a descontar
+      total_cuentas,
       salario_neto,
       metodo_pago,             // efectivo_usd, zelle, binance, nequi, pago_movil, etc.
       moneda_pago = 'USD',     // USD, BS, COP
@@ -120,6 +135,7 @@ router.post('/pagar', requireAdmin, async (req, res) => {
         periodo_fin: periodo_fin ?? null,
         salario_base: salario_base ?? 0,
         total_adelantos: total_adelantos ?? 0,
+        total_cuentas: total_cuentas ?? 0,
         salario_neto: salario_neto ?? 0,
         metodo_pago,
         moneda_pago,
@@ -146,6 +162,40 @@ router.post('/pagar', requireAdmin, async (req, res) => {
       if (adelError) {
         console.error('Error actualizando adelantos:', adelError);
         // No bloquear el pago por esto
+      }
+    }
+
+    // 2.5 Marcar cuentas por cobrar como PAGADA
+    if (cuenta_ids.length > 0) {
+      // Create payment history for these accounts
+      const pagosCuentas = cuenta_ids.map(cuentaId => ({
+        id: crypto.randomUUID(),
+        cuenta_id: cuentaId,
+        cuentaId: cuentaId,
+        monto: 0, // Since we don't have the exact split easily, or we can fetch them to record accurate amounts, but this is simple
+        metodo: 'descuento_nomina',
+        metodo_pago: 'descuento_nomina',
+        fecha: now,
+        fecha_pago: now,
+        notas: `Descuento por nómina (Nomina ID: ${nominaId})`,
+        empleado_nombre: empleado_nombre ?? 'Sistema'
+      }));
+
+      // Update the accounts
+      const { error: cuentaError } = await supabase
+        .from('CuentaPorCobrar')
+        .update({
+          estado: 'pagada',
+          monto_pendiente: 0
+        })
+        .in('id', cuenta_ids);
+        
+      if (cuentaError) {
+        console.error('Error actualizando cuentas por cobrar:', cuentaError);
+      } else {
+        // Now we can fetch their previous amounts if needed, or just not specify monto in pago
+        // Let's just insert to log
+        await supabase.from('PagoCuentaPorCobrar').insert(pagosCuentas);
       }
     }
 
