@@ -6,20 +6,25 @@ import { Button } from "@/components/ui/button";
 import { ChefHat, Clock, CheckCircle, Utensils, User, Wifi, WifiOff, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-// ─── Sonido de alerta FUERTE (Web Audio API) ─────────────────────────
-// Genera una sirena potente de restaurante a volumen máximo
+// ─── Sonido de alerta FUERTE — GRILLO (Web Audio API) ────────────────
+// Genera un "cri-cri-cri" de grillo potente a volumen máximo
 const playLoudAlert = () => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-    const playBeep = (startTime, freq1, freq2, duration) => {
+    // Un solo pulso corto de grillo
+    const chirpPulse = (startTime, freq, duration) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
+      // Onda cuadrada simula el "cri" áspero del grillo
       osc.type = 'square';
-      osc.frequency.setValueAtTime(freq1, ctx.currentTime + startTime);
-      osc.frequency.linearRampToValueAtTime(freq2, ctx.currentTime + startTime + duration);
-      gain.gain.setValueAtTime(0.9, ctx.currentTime + startTime);
-      gain.gain.setValueAtTime(0.9, ctx.currentTime + startTime + duration - 0.05);
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+      // Ligera variación de frecuencia para sonar más natural
+      osc.frequency.linearRampToValueAtTime(freq * 1.05, ctx.currentTime + startTime + duration);
+      // Envolvente: ataque rápido, volumen alto, corte abrupto
+      gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
+      gain.gain.linearRampToValueAtTime(0.95, ctx.currentTime + startTime + 0.005);
+      gain.gain.setValueAtTime(0.95, ctx.currentTime + startTime + duration - 0.005);
       gain.gain.linearRampToValueAtTime(0, ctx.currentTime + startTime + duration);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -27,17 +32,25 @@ const playLoudAlert = () => {
       osc.stop(ctx.currentTime + startTime + duration);
     };
 
-    // 3 ciclos de sirena (sube y baja) — ~3 segundos en total
-    for (let i = 0; i < 3; i++) {
-      const t = i * 1.0;
-      playBeep(t, 800, 1600, 0.45);      // Sube
-      playBeep(t + 0.5, 1600, 800, 0.45); // Baja
-    }
+    // Un "chirp" = grupo de 4 pulsos rápidos (cri-cri-cri-cri)
+    const chirpGroup = (groupStart) => {
+      for (let p = 0; p < 4; p++) {
+        chirpPulse(groupStart + p * 0.08, 4000 + Math.random() * 200, 0.04);
+        // Segunda capa a frecuencia ligeramente diferente para más volumen
+        chirpPulse(groupStart + p * 0.08, 4400 + Math.random() * 200, 0.04);
+      }
+    };
 
-    // Cerrar contexto después de que termine
-    setTimeout(() => ctx.close().catch(() => {}), 4000);
+    // 5 chirps separados (~4 segundos total) — como un grillo insistente
+    chirpGroup(0.0);    // cri-cri-cri-cri
+    chirpGroup(0.7);    // cri-cri-cri-cri
+    chirpGroup(1.4);    // cri-cri-cri-cri
+    chirpGroup(2.3);    // cri-cri-cri-cri
+    chirpGroup(3.0);    // cri-cri-cri-cri
+
+    setTimeout(() => ctx.close().catch(() => {}), 5000);
   } catch (e) {
-    console.error('[Cocina] Error reproduciendo alerta:', e);
+    console.error('[Cocina] Error reproduciendo alerta grillo:', e);
   }
 };
 
