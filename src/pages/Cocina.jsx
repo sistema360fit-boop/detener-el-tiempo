@@ -6,49 +6,63 @@ import { Button } from "@/components/ui/button";
 import { ChefHat, Clock, CheckCircle, Utensils, User, Wifi, WifiOff, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-// ─── Sonido de alerta FUERTE — GRILLO (Web Audio API) ────────────────
-// Genera un "cri-cri-cri" de grillo potente a volumen máximo
+// ─── Sonido de alerta MÁXIMO VOLUMEN — GRILLO (Web Audio API) ────────
+// Grillo a volumen MÁXIMO con compresor para exprimir cada decibel
 const playLoudAlert = () => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Un solo pulso corto de grillo
+    // Compresor para empujar el audio al techo sin distorsionar
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-3, ctx.currentTime);
+    compressor.knee.setValueAtTime(0, ctx.currentTime);
+    compressor.ratio.setValueAtTime(20, ctx.currentTime);
+    compressor.attack.setValueAtTime(0, ctx.currentTime);
+    compressor.release.setValueAtTime(0.01, ctx.currentTime);
+
+    // Ganancia maestra al máximo
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(1.0, ctx.currentTime);
+    masterGain.connect(compressor);
+    compressor.connect(ctx.destination);
+
+    // Un pulso de grillo conectado al compresor
     const chirpPulse = (startTime, freq, duration) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      // Onda cuadrada simula el "cri" áspero del grillo
       osc.type = 'square';
       osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
-      // Ligera variación de frecuencia para sonar más natural
       osc.frequency.linearRampToValueAtTime(freq * 1.05, ctx.currentTime + startTime + duration);
-      // Envolvente: ataque rápido, volumen alto, corte abrupto
       gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
-      gain.gain.linearRampToValueAtTime(0.95, ctx.currentTime + startTime + 0.005);
-      gain.gain.setValueAtTime(0.95, ctx.currentTime + startTime + duration - 0.005);
+      gain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + startTime + 0.003);
+      gain.gain.setValueAtTime(1.0, ctx.currentTime + startTime + duration - 0.003);
       gain.gain.linearRampToValueAtTime(0, ctx.currentTime + startTime + duration);
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(masterGain);
       osc.start(ctx.currentTime + startTime);
       osc.stop(ctx.currentTime + startTime + duration);
     };
 
-    // Un "chirp" = grupo de 4 pulsos rápidos (cri-cri-cri-cri)
+    // Un chirp = 5 pulsos rápidos con 4 capas de frecuencia simultáneas
     const chirpGroup = (groupStart) => {
-      for (let p = 0; p < 4; p++) {
-        chirpPulse(groupStart + p * 0.08, 4000 + Math.random() * 200, 0.04);
-        // Segunda capa a frecuencia ligeramente diferente para más volumen
-        chirpPulse(groupStart + p * 0.08, 4400 + Math.random() * 200, 0.04);
+      for (let p = 0; p < 5; p++) {
+        const t = groupStart + p * 0.07;
+        chirpPulse(t, 3800 + Math.random() * 200, 0.035);
+        chirpPulse(t, 4200 + Math.random() * 200, 0.035);
+        chirpPulse(t, 4600 + Math.random() * 200, 0.035);
+        chirpPulse(t, 5000 + Math.random() * 200, 0.035);
       }
     };
 
-    // 5 chirps separados (~4 segundos total) — como un grillo insistente
-    chirpGroup(0.0);    // cri-cri-cri-cri
-    chirpGroup(0.7);    // cri-cri-cri-cri
-    chirpGroup(1.4);    // cri-cri-cri-cri
-    chirpGroup(2.3);    // cri-cri-cri-cri
-    chirpGroup(3.0);    // cri-cri-cri-cri
+    // 6 chirps insistentes (~4.5 segundos)
+    chirpGroup(0.0);
+    chirpGroup(0.7);
+    chirpGroup(1.4);
+    chirpGroup(2.1);
+    chirpGroup(2.8);
+    chirpGroup(3.5);
 
-    setTimeout(() => ctx.close().catch(() => {}), 5000);
+    setTimeout(() => ctx.close().catch(() => {}), 6000);
   } catch (e) {
     console.error('[Cocina] Error reproduciendo alerta grillo:', e);
   }
