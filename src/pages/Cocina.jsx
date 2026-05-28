@@ -6,36 +6,79 @@ import { Button } from "@/components/ui/button";
 import { ChefHat, Clock, CheckCircle, Utensils, User, Wifi, WifiOff, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-// ─── Sonido de alerta — CAMPANA DE COCINA (Web Audio API) ────────────
-// Timbre fuerte pero agradable, frecuencias medias, no chillón
-const playLoudAlert = async () => {
+// ─── Sistema de Audio Persistente (compatible con Chrome) ────────────
+// Chrome BLOQUEA audio hasta que el usuario toque la pantalla.
+// Solución: UN solo AudioContext global que se desbloquea con click/touch.
+let _audioCtx = null;
+let _audioDesbloqueado = false;
+
+function getAudioCtx() {
+  if (!_audioCtx) {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return _audioCtx;
+}
+
+// Desbloquear audio con gesto del usuario
+function desbloquearAudio() {
+  const ctx = getAudioCtx();
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(() => {
+      _audioDesbloqueado = true;
+      console.log('[Cocina] ✅ Audio desbloqueado exitosamente');
+      // Reproducir un sonido silencioso para confirmar desbloqueo
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.01, ctx.currentTime);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.05);
+    });
+  } else {
+    _audioDesbloqueado = true;
+  }
+}
+
+// Registrar listeners globales para desbloquear al primer toque
+if (typeof window !== 'undefined') {
+  const eventos = ['click', 'touchstart', 'keydown'];
+  const handler = () => {
+    desbloquearAudio();
+    eventos.forEach(e => window.removeEventListener(e, handler));
+  };
+  eventos.forEach(e => window.addEventListener(e, handler, { once: false }));
+}
+
+// Sonido de alerta: CAMPANA fuerte, frecuencias medias, no chillón
+const playLoudAlert = () => {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    // ⚠️ CRUCIAL: Desbloquear el AudioContext (Chrome lo suspende por defecto)
-    await ctx.resume();
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+      console.warn('[Cocina] AudioContext suspendido — toca la pantalla para activar sonido');
+      return;
+    }
 
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(1.0, ctx.currentTime);
     masterGain.connect(ctx.destination);
 
-    // Un "ding" de campana: tono limpio que se desvanece
     const playDing = (startTime, freq, duration) => {
-      // Tono principal (seno = limpio, no chillón)
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
 
-      // Armónico para darle cuerpo
       const osc2 = ctx.createOscillator();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(freq * 2, ctx.currentTime + startTime);
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(freq * 1.5, ctx.currentTime + startTime);
 
       const gain1 = ctx.createGain();
       gain1.gain.setValueAtTime(1.0, ctx.currentTime + startTime);
       gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
 
       const gain2 = ctx.createGain();
-      gain2.gain.setValueAtTime(0.4, ctx.currentTime + startTime);
+      gain2.gain.setValueAtTime(0.5, ctx.currentTime + startTime);
       gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
 
       osc.connect(gain1);
@@ -49,17 +92,14 @@ const playLoudAlert = async () => {
       osc2.stop(ctx.currentTime + startTime + duration);
     };
 
-    // Patrón: DING-DING ... DING-DING ... DING-DING (3 pares)
-    // Frecuencias medias (500-900Hz) = audibles y no chillones
-    playDing(0.0, 800, 0.5);   // DING
-    playDing(0.3, 600, 0.5);   // DONG
-    playDing(1.0, 800, 0.5);   // DING
-    playDing(1.3, 600, 0.5);   // DONG
-    playDing(2.0, 800, 0.5);   // DING
-    playDing(2.3, 600, 0.5);   // DONG
-    playDing(3.0, 900, 0.8);   // DIIIING final largo
-
-    setTimeout(() => ctx.close().catch(() => {}), 5000);
+    // DING-DONG x3 + DIIIING final (~4 seg)
+    playDing(0.0, 800, 0.5);
+    playDing(0.3, 600, 0.5);
+    playDing(1.0, 800, 0.5);
+    playDing(1.3, 600, 0.5);
+    playDing(2.0, 800, 0.5);
+    playDing(2.3, 600, 0.5);
+    playDing(3.0, 900, 0.8);
   } catch (e) {
     console.error('[Cocina] Error reproduciendo alerta:', e);
   }
@@ -154,6 +194,23 @@ export default function Cocina() {
   const [sonidoActivo, setSonidoActivo] = useState(true);
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
   const [flashId, setFlashId] = useState(null); // Para animación de nueva comanda
+  const [audioListo, setAudioListo] = useState(_audioDesbloqueado);
+
+  // Detectar cuando el audio se desbloquea
+  useEffect(() => {
+    const checkAudio = () => {
+      if (_audioDesbloqueado && !audioListo) setAudioListo(true);
+    };
+    const handler = () => { desbloquearAudio(); setTimeout(checkAudio, 200); };
+    window.addEventListener('click', handler);
+    window.addEventListener('touchstart', handler);
+    const interval = setInterval(checkAudio, 1000);
+    return () => {
+      window.removeEventListener('click', handler);
+      window.removeEventListener('touchstart', handler);
+      clearInterval(interval);
+    };
+  }, [audioListo]);
 
   // 1. Obtener comandas activas (se refresca vía SSE + fallback polling rápido)
   const { data: comandas = [] } = useQuery({
@@ -298,6 +355,17 @@ export default function Cocina() {
   return (
     <div className="min-h-screen bg-slate-950 p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+
+        {/* ⚠️ Banner: Activar Audio (Chrome lo requiere) */}
+        {!audioListo && (
+          <button
+            onClick={() => { desbloquearAudio(); setTimeout(() => setAudioListo(true), 300); }}
+            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black text-lg py-4 px-6 rounded-2xl flex items-center justify-center gap-3 animate-pulse shadow-lg shadow-amber-500/30 transition-all"
+          >
+            <Volume2 className="w-7 h-7" />
+            🔊 TOCA AQUÍ PARA ACTIVAR EL SONIDO DE ALERTAS
+          </button>
+        )}
         
         {/* Header Principal */}
         <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl p-6 shadow-2xl">
