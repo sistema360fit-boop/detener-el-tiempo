@@ -43,6 +43,7 @@ model Ingrediente {
   unidad_receta       String?
   factor_conversion   Float   @default(1)
   costo_por_unidad    Float?
+  proveedor           String?
   createdAt           DateTime @default(now())
 }
 

@@ -250,11 +250,11 @@ export default function ComandaDetalle({
   };
 
   // Cálculos de conversión con descuento
-  const subtotalUSD = comanda.total_comanda;
+  const subtotalUSD = comanda?.total_comanda || 0;
   const descuentoMonto = subtotalUSD * (descuentoPorcentaje / 100);
   const totalUSD = subtotalUSD - descuentoMonto;
   const totalCOP = totalUSD * tasaCOPLocal; // Usar tasa COP configurable
-  const totalVES = tasaUSDLocal ? totalUSD * tasaUSDLocal : (tasaActual ? totalUSD * tasaActual.tasa_bs_usd : 0); // Usar tasa USD configurable con +16%
+  const totalVES = tasaUSDLocal ? totalUSD * tasaUSDLocal : (tasaActual ? totalUSD * (tasaActual.tasa_bs_usd || 0) : 0); // Usar tasa USD configurable con +16%
 
   const puedeModificar = comanda.estado === 'abierta';
   const puedePagar = comanda.estado === 'abierta' || comanda.estado === 'cerrada';
@@ -309,7 +309,7 @@ export default function ComandaDetalle({
           <div className="flex items-center gap-2">
             <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Apertura</span>
             <span className="font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-xl">
-              {format(new Date(comanda.fecha_apertura), "HH:mm", { locale: es })} hs
+              {comanda?.fecha_apertura ? format(new Date(comanda.fecha_apertura), "HH:mm", { locale: es }) : '--:--'} hs
             </span>
           </div>
         </div>
@@ -547,7 +547,7 @@ export default function ComandaDetalle({
                     </p>
                   </div>
                   <p className="text-[9px] text-emerald-500 font-bold mt-2">
-                    Tasa: 1 USD = Bs {(tasaUSDLocal || tasaActual.tasa_bs_usd).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                    Tasa: 1 USD = Bs {((tasaUSDLocal || tasaActual?.tasa_bs_usd) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               ) : (
@@ -767,7 +767,7 @@ export default function ComandaDetalle({
                             </p>
                           </div>
                           <p className="text-[9px] text-emerald-500 font-bold mt-2">
-                            Tasa: Bs {(tasaUSDLocal || tasaActual.tasa_bs_usd).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                            Tasa: Bs {((tasaUSDLocal || tasaActual?.tasa_bs_usd) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                           </p>
                         </div>
                       ) : (
