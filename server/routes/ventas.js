@@ -1,19 +1,21 @@
 import express from 'express';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 import { explodirElemento, descontarDelInventario } from '../services/inventory.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('Venta')
-      .select('*, detalles:DetalleVenta(*)')
-      .neq('estado', 'ARCHIVADO')
-      .order('fecha_hora', { ascending: false })
-      .limit(1000);
-    if (error) throw error;
+    const data = await prisma.venta.findMany({
+      where: {
+        estado: { not: 'ARCHIVADO' }
+      },
+      include: { detalles: true },
+      orderBy: { fecha_hora: 'desc' },
+      take: 1000
+    });
     res.json(data);
   } catch (e) {
     console.error('Error fetching ventas', e);
@@ -24,36 +26,34 @@ router.get('/', requireAuth, async (req, res) => {
 router.post('/', requireAdmin, async (req, res) => {
   try {
     const { total_venta, metodo_pago, detalles } = req.body;
-    const ventaId = crypto.randomUUID();
     
-    const { data: venta, error: ventaError } = await supabase
-      .from('Venta')
-      .insert({ id: ventaId, total_venta, metodo_pago })
-      .select()
-      .single();
-    if (ventaError) throw ventaError;
+    // Create venta and its detalles in a single transaction if we want,
+    // but the original code created them separately. We can use create with include.
     
-    let detallesCreados = [];
-    if (detalles && detalles.length > 0) {
-      const detallesData = detalles.map(d => ({
-        id: crypto.randomUUID(),
-        ventaId,
-        platoId: d.plato_id || d.platoId || null,
-        platoNombre: d.plato_nombre || d.platoNombre || null,
-        cantidad: d.cantidad,
-        precioUnitario: d.precio_unitario || d.precioUnitario || 0,
-        subtotal: d.subtotal || 0
-      }));
-      
-      const { data: det, error: detError } = await supabase
-        .from('DetalleVenta').insert(detallesData).select();
-      if (detError) throw detError;
-      detallesCreados = det;
-    }
+    const detallesData = (detalles || []).map(d => ({
+      platoId: d.plato_id || d.platoId || null,
+      platoNombre: d.plato_nombre || d.platoNombre || null,
+      cantidad: parseFloat(d.cantidad) || 0,
+      precioUnitario: parseFloat(d.precio_unitario || d.precioUnitario || 0),
+      subtotal: parseFloat(d.subtotal || 0)
+    }));
+
+    const venta = await prisma.venta.create({
+      data: {
+        total_venta: parseFloat(total_venta),
+        metodo_pago,
+        detalles: {
+          create: detallesData
+        }
+      },
+      include: {
+        detalles: true
+      }
+    });
 
     // Descontar stock automáticamente
     const consolidado = {};
-    for (const detalle of detallesCreados) {
+    for (const detalle of venta.detalles) {
       if (detalle.platoId) {
         await explodirElemento(detalle.platoId, detalle.cantidad, consolidado);
       }
@@ -62,7 +62,7 @@ router.post('/', requireAdmin, async (req, res) => {
       await descontarDelInventario(ingredienteId, cantidad);
     }
 
-    res.json({ ...venta, detalles: detallesCreados });
+    res.json(venta);
   } catch (e) {
     console.error('Error creating venta', e);
     res.status(500).json({ error: e.message });

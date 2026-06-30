@@ -1,17 +1,16 @@
 import express from 'express';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('PagoMixto')
-      .select('*')
-      .order('fecha', { ascending: false })
-      .limit(500); // Límite más amplio para reportes
-    if (error) throw error;
+    const data = await prisma.pagoMixto.findMany({
+      orderBy: { fecha: 'desc' },
+      take: 500
+    });
     res.json(data);
   } catch (e) {
     console.error('Error fetching pagos mixtos', e);
@@ -22,21 +21,17 @@ router.get('/', requireAuth, async (req, res) => {
 router.post('/', requireAdmin, async (req, res) => {
   try {
     const { ventaId, monto, monto_usd, monto_original, moneda, metodo_pago, fecha } = req.body;
-    const { data, error } = await supabase
-      .from('PagoMixto')
-      .insert({
-        id: crypto.randomUUID(),
+    const data = await prisma.pagoMixto.create({
+      data: {
         ventaId,
-        monto,
-        monto_usd,
-        monto_original,
-        moneda,
+        monto: parseFloat(monto) || 0,
+        monto_usd: parseFloat(monto_usd) || 0,
+        monto_original: parseFloat(monto_original) || 0,
+        moneda: moneda || 'usd',
         metodo_pago,
-        fecha: fecha ? new Date(fecha).toISOString() : new Date().toISOString()
-      })
-      .select()
-      .single();
-    if (error) throw error;
+        fecha: fecha ? new Date(fecha) : new Date()
+      }
+    });
     res.json(data);
   } catch (e) {
     console.error('Error creating pago mixto', e);

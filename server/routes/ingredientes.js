@@ -1,14 +1,14 @@
 import express from 'express';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 import { recalcularCostosEnCascada } from '../services/inventory.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase.from('Ingrediente').select('*');
-    if (error) throw error;
+    const data = await prisma.ingrediente.findMany();
     res.json(data);
   } catch (e) {
     console.error('Get ingredientes error', e);
@@ -24,20 +24,16 @@ router.post('/', requireAdmin, async (req, res) => {
     const cantidadDisp = cantidad_disponible ?? cantidadDisponible;
     const cantidadMin = cantidad_minima ?? cantidadMinima;
     
-    const { data, error } = await supabase
-      .from('Ingrediente')
-      .insert({
-        id: crypto.randomUUID(),
+    const data = await prisma.ingrediente.create({
+      data: {
         nombre: nombre?.trim().toLowerCase(),
         unidad_medida: unidad_medida || 'kg',
-        costo_por_unidad: parseFloat(costo) ?? 0,
-        cantidad_disponible: parseFloat(cantidadDisp) ?? 0,
-        cantidad_minima: parseFloat(cantidadMin) ?? 0,
+        costo_por_unidad: parseFloat(costo) || 0,
+        cantidad_disponible: parseFloat(cantidadDisp) || 0,
+        cantidad_minima: parseFloat(cantidadMin) || 0,
         proveedor: proveedor || null
-      })
-      .select()
-      .single();
-    if (error) throw error;
+      }
+    });
     res.json(data);
   } catch (e) {
     console.error('Error creating ingrediente', e);
@@ -51,14 +47,15 @@ router.put('/:id', requireAdmin, async (req, res) => {
     const { nombre, unidad_medida, unidad_receta, factor_conversion, factorConversion, costo_por_unidad, costoPorUnidad, cantidad_disponible, cantidadDisponible, cantidad_minima, cantidadMinima, proveedor } = req.body;
     
     // Obtener ingrediente anterior para historial de costos
-    const { data: ingredienteAnterior } = await supabase
-      .from('Ingrediente').select('*').eq('id', id).single();
+    const ingredienteAnterior = await prisma.ingrediente.findUnique({
+      where: { id }
+    });
     
     if (!ingredienteAnterior) {
       return res.status(404).json({ error: 'Ingrediente no encontrado' });
     }
     
-    const nuevoCosto = parseFloat(costo_por_unidad ?? costoPorUnidad) ?? 0;
+    const nuevoCosto = parseFloat(costo_por_unidad ?? costoPorUnidad) || 0;
     
     // Preparar objeto de actualización
     const updateData = {};
@@ -71,21 +68,19 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (cantidad_minima !== undefined || cantidadMinima !== undefined) updateData.cantidad_minima = parseFloat(cantidad_minima ?? cantidadMinima);
     if (proveedor !== undefined) updateData.proveedor = proveedor;
 
-    const { data, error } = await supabase
-      .from('Ingrediente')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
+    const data = await prisma.ingrediente.update({
+      where: { id },
+      data: updateData
+    });
     
     // Guardar historial de costos si cambió
     if (ingredienteAnterior.costo_por_unidad !== nuevoCosto) {
-      await supabase.from('HistorialCostoIngrediente').insert({
-        id: crypto.randomUUID(),
-        ingredienteId: id,
-        costoAnterior: ingredienteAnterior.costo_por_unidad,
-        costoNuevo: nuevoCosto
+      await prisma.historialCostoIngrediente.create({
+        data: {
+          ingredienteId: id,
+          costoAnterior: ingredienteAnterior.costo_por_unidad,
+          costoNuevo: nuevoCosto
+        }
       });
       
       // Lanzar el recálculo en segundo plano
@@ -104,13 +99,10 @@ router.put('/:id/stock', requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { cantidad_disponible } = req.body;
     
-    const { data, error } = await supabase
-      .from('Ingrediente')
-      .update({ cantidad_disponible: parseFloat(cantidad_disponible) })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
+    const data = await prisma.ingrediente.update({
+      where: { id },
+      data: { cantidad_disponible: parseFloat(cantidad_disponible) }
+    });
     res.json(data);
   } catch (e) {
     console.error('Error updating ingrediente stock', e);
@@ -121,8 +113,7 @@ router.put('/:id/stock', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('Ingrediente').delete().eq('id', id);
-    if (error) throw error;
+    await prisma.ingrediente.delete({ where: { id } });
     res.json({ success: true });
   } catch (e) {
     console.error('Error deleting ingrediente', e);

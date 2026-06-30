@@ -1,23 +1,22 @@
 import express from 'express';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('CuentaPorCobrar')
-      .select('*')
-      .order('fecha_creacion', { ascending: false, nullsFirst: false });
-    if (error) throw error;
+    const data = await prisma.cuentaPorCobrar.findMany({
+      orderBy: { fecha_creacion: 'desc' }
+    });
     
     // Normalize data for frontend
     const normalizedData = data.map(item => ({
       ...item,
-      cliente_nombre: item.cliente_nombre || item.clienteNombre,
-      empleado_id: item.empleado_id || item.empleadoId,
-      fecha_vencimiento: item.fecha_vencimiento || item.vencimiento
+      cliente_nombre: item.clienteNombre,
+      empleado_id: item.empleadoId,
+      fecha_vencimiento: item.vencimiento
     }));
     
     res.json(normalizedData);
@@ -30,7 +29,6 @@ router.post('/', requireAdmin, async (req, res) => {
   try {
     const body = req.body;
     const insertData = {
-      id: body.id || crypto.randomUUID(),
       clienteNombre: body.clienteNombre || body.cliente_nombre || 'Cliente sin nombre',
       empleadoId: body.empleadoId || body.empleado_id || null,
       monto: parseFloat(body.monto || body.monto_total || 0),
@@ -40,18 +38,13 @@ router.post('/', requireAdmin, async (req, res) => {
       estado: body.estado || 'pendiente',
       comanda_numero: body.comanda_numero || null,
       cliente_telefono: body.cliente_telefono || null,
-      vencimiento: body.vencimiento || body.fecha_vencimiento || null,
-      fecha_creacion: body.fecha_creacion || new Date().toISOString()
+      vencimiento: body.vencimiento || body.fecha_vencimiento ? new Date(body.vencimiento || body.fecha_vencimiento) : null,
+      fecha_creacion: body.fecha_creacion ? new Date(body.fecha_creacion) : new Date()
     };
 
-    console.log('[CuentasPorCobrar] Creando cuenta:', JSON.stringify(insertData));
-
-    const { data, error } = await supabase
-      .from('CuentaPorCobrar')
-      .insert(insertData)
-      .select()
-      .single();
-    if (error) throw error;
+    const data = await prisma.cuentaPorCobrar.create({
+      data: insertData
+    });
     
     // Normalize for frontend
     const normalized = {
@@ -71,13 +64,14 @@ router.post('/', requireAdmin, async (req, res) => {
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
-      .from('CuentaPorCobrar')
-      .update(req.body)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
+    const updateData = { ...req.body };
+    if (updateData.vencimiento) updateData.vencimiento = new Date(updateData.vencimiento);
+    if (updateData.fecha_creacion) updateData.fecha_creacion = new Date(updateData.fecha_creacion);
+
+    const data = await prisma.cuentaPorCobrar.update({
+      where: { id },
+      data: updateData
+    });
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -87,11 +81,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase
-      .from('CuentaPorCobrar')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
+    await prisma.cuentaPorCobrar.delete({ where: { id } });
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

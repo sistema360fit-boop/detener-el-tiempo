@@ -1,17 +1,16 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('Empleado')
-      .select('*')
-      .order('createdAt', { ascending: false });
-    if (error) throw error;
+    const data = await prisma.empleado.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
     res.json(data);
   } catch (e) {
     console.error('Get personal error', e);
@@ -27,8 +26,9 @@ router.post('/', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Nombre, usuario y contraseña son requeridos' });
     }
     
-    const { data: existingUser } = await supabase
-      .from('Empleado').select('id').eq('usuario', usuario.toLowerCase()).maybeSingle();
+    const existingUser = await prisma.empleado.findUnique({
+      where: { usuario: usuario.toLowerCase() }
+    });
     
     if (existingUser) {
       return res.status(400).json({ error: 'El nombre de usuario ya está en uso' });
@@ -36,10 +36,8 @@ router.post('/', requireAdmin, async (req, res) => {
     
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    const { data, error } = await supabase
-      .from('Empleado')
-      .insert({
-        id: crypto.randomUUID(),
+    const data = await prisma.empleado.create({
+      data: {
         nombre,
         usuario: usuario.toLowerCase(),
         password: hashedPassword,
@@ -49,10 +47,8 @@ router.post('/', requireAdmin, async (req, res) => {
         cargo: cargo ?? null,
         cedula: cedula ?? null,
         telefono: telefono ?? null,
-      })
-      .select()
-      .single();
-    if (error) throw error;
+      }
+    });
     
     const { password: _, ...personaSinPassword } = data;
     res.json(personaSinPassword);
@@ -71,11 +67,12 @@ router.put('/:id', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Nombre y usuario son requeridos' });
     }
     
-    const { data: existingUser } = await supabase
-      .from('Empleado').select('id')
-      .eq('usuario', usuario.toLowerCase())
-      .neq('id', id)
-      .maybeSingle();
+    const existingUser = await prisma.empleado.findFirst({
+      where: {
+        usuario: usuario.toLowerCase(),
+        id: { not: id }
+      }
+    });
     
     if (existingUser) {
       return res.status(400).json({ error: 'El nombre de usuario ya está en uso' });
@@ -98,13 +95,10 @@ router.put('/:id', requireAdmin, async (req, res) => {
       updateData.password = await bcrypt.hash(password, 10);
     }
     
-    const { data, error } = await supabase
-      .from('Empleado')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
+    const data = await prisma.empleado.update({
+      where: { id },
+      data: updateData
+    });
     
     const { password: _, ...personaSinPassword } = data;
     res.json(personaSinPassword);
@@ -117,8 +111,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('Empleado').delete().eq('id', id);
-    if (error) throw error;
+    await prisma.empleado.delete({ where: { id } });
     res.json({ success: true });
   } catch (e) {
     console.error('Delete personal error', e);

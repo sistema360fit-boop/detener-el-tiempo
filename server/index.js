@@ -8,8 +8,11 @@ import fs from 'fs';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
+// Prisma Client for stats
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
 // Importar configuración y middlewares
-import supabase from './config/supabase.js';
 import { requireAuth, requireAdmin } from './middlewares/auth.js';
 
 // Importar rutas
@@ -123,29 +126,29 @@ app.get('/api/cocina/stream', (req, res) => {
 // === ADMIN ENDPOINTS (solo lectura, sin eliminación) ===
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
-    const getData = async (tableName) => {
+    const getData = async (modelName) => {
       try {
-        const { data, error } = await supabase.from(tableName).select('*').limit(100);
-        if (error) return { error: error.message, count: 0, data: [] };
-        return { count: data.length, data };
+        const count = await prisma[modelName].count();
+        const data = await prisma[modelName].findMany({ take: 100 });
+        return { count, data };
       } catch (e) {
         return { error: e.message, count: 0, data: [] };
       }
     };
     
     const [ventas, comandas, gastos, pagosMixtos, cuentasPorCobrar, empleados, platos, ingredientes, compras, adelantos, alertas, usuarios] = await Promise.all([
-      getData('Venta'),
-      getData('Comanda'),
-      getData('Gasto'),
-      getData('PagoMixto'),
-      getData('CuentaPorCobrar'),
-      getData('Empleado'),
-      getData('Plato'),
-      getData('Ingrediente'),
-      getData('Compra'),
-      getData('Adelanto'),
-      getData('AlertaStock'),
-      getData('Usuario')
+      getData('venta'),
+      getData('comanda'),
+      getData('gasto'),
+      getData('pagoMixto'),
+      getData('cuentaPorCobrar'),
+      getData('empleado'),
+      getData('plato'),
+      getData('ingrediente'),
+      getData('compra'),
+      getData('adelanto'),
+      getData('alertaStock'),
+      getData('usuario')
     ]);
     
     res.json({ ventas, comandas, gastos, pagosMixtos, cuentasPorCobrar, empleados, platos, ingredientes, compras, adelantos, alertas, usuarios });

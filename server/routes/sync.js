@@ -1,8 +1,9 @@
 import express from 'express';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 // Whitelist de entidades permitidas para sincronización
 const ALLOWED_ENTITIES = [
@@ -12,21 +13,6 @@ const ALLOWED_ENTITIES = [
   'recetaPrimaria', 'recetaSecundaria', 'detalleRecetaPrimaria',
   'detalleRecetaSecundaria', 'compra', 'cuentaPorCobrar', 'pagoMixto'
 ];
-
-// Mapeo de nombres de entidad a nombres de tabla en Supabase (PascalCase)
-const TABLE_MAP = {
-  'venta': 'Venta', 'detalleVenta': 'DetalleVenta',
-  'comanda': 'Comanda', 'detalleComanda': 'DetalleComanda',
-  'ingrediente': 'Ingrediente', 'plato': 'Plato', 'receta': 'Receta',
-  'gasto': 'Gasto', 'adelanto': 'Adelanto',
-  'categoriaGasto': 'CategoriaGasto', 'tasaCambio': 'TasaCambio',
-  'empleado': 'Empleado', 'alertaStock': 'AlertaStock',
-  'recetaPrimaria': 'RecetaPrimaria', 'recetaSecundaria': 'RecetaSecundaria',
-  'detalleRecetaPrimaria': 'DetalleRecetaPrimaria',
-  'detalleRecetaSecundaria': 'DetalleRecetaSecundaria',
-  'compra': 'Compra', 'cuentaPorCobrar': 'CuentaPorCobrar',
-  'pagoMixto': 'PagoMixto'
-};
 
 // Endpoint para sincronizar datos desde el frontend (bulk sync desde localStorage)
 router.post('/', requireAdmin, async (req, res) => {
@@ -43,10 +29,9 @@ router.post('/', requireAdmin, async (req, res) => {
 
     for (const [entityName, items] of Object.entries(entities)) {
       const prop = toProp(entityName);
-      const tableName = TABLE_MAP[prop];
       
-      if (!ALLOWED_ENTITIES.includes(prop) || !tableName) {
-        console.warn('Entidad no permitida o no encontrada:', prop);
+      if (!ALLOWED_ENTITIES.includes(prop) || !prisma[prop]) {
+        console.warn('Entidad no permitida o no encontrada en Prisma:', prop);
         continue;
       }
 
@@ -81,22 +66,26 @@ router.post('/', requireAdmin, async (req, res) => {
             delete normalizedData.empleado_id;
           }
 
+          // Convertir fechas a objetos Date
+          const dateFields = ['fecha', 'fecha_hora', 'fecha_apertura', 'fecha_cierre', 'createdAt', 'updatedAt', 'creadoEn', 'fecha_pago', 'fecha_creacion', 'vencimiento'];
+          for (const df of dateFields) {
+            if (normalizedData[df] && typeof normalizedData[df] === 'string') {
+              normalizedData[df] = new Date(normalizedData[df]);
+            }
+          }
+
           // Asegurar que tenga ID
           if (!normalizedData.id) {
             normalizedData.id = crypto.randomUUID();
           }
 
-          const { data, error } = await supabase
-            .from(tableName)
-            .upsert(normalizedData)
-            .select()
-            .single();
+          const upserted = await prisma[prop].upsert({
+            where: { id: normalizedData.id },
+            update: normalizedData,
+            create: normalizedData
+          });
           
-          if (error) {
-            console.warn('Error syncing item for', entityName, error.message);
-          } else {
-            results[entityName].push(data);
-          }
+          results[entityName].push(upserted);
         } catch (e) {
           console.warn('Error syncing item for', entityName, e.message);
         }

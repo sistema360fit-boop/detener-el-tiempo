@@ -1,16 +1,16 @@
 import express from 'express';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('Compra').select('*')
-      .order('fecha_compra', { ascending: false })
-      .limit(1000);
-    if (error) throw error;
+    const data = await prisma.compra.findMany({
+      orderBy: { fecha_compra: 'desc' },
+      take: 1000
+    });
     res.json(data);
   } catch (e) {
     console.error('Error fetching compras', e);
@@ -36,29 +36,25 @@ router.post('/', requireAuth, async (req, res) => {
       notas 
     } = req.body;
 
-    const { data, error } = await supabase
-      .from('Compra')
-      .insert({
-        id: crypto.randomUUID(),
+    const data = await prisma.compra.create({
+      data: {
         ingrediente_id: ingrediente_id || ingredienteId,
         ingrediente_nombre: ingrediente_nombre || ingredienteNombre,
-        cantidad,
+        cantidad: parseFloat(cantidad) || 0,
         unidad_medida: unidad_medida || unidadMedida,
-        costo_unitario: costo_unitario || costoUnitario,
-        costo_total: costo_total || costoTotal,
+        costo_unitario: parseFloat(costo_unitario || costoUnitario) || 0,
+        costo_total: parseFloat(costo_total || costoTotal) || 0,
         proveedor,
         numero_factura: numero_factura || numeroFactura,
-        fecha_compra: (fecha_compra || fechaCompra) ? new Date(fecha_compra || fechaCompra).toISOString() : new Date().toISOString(),
-        fecha_entrega_estimada: (fecha_entrega_estimada || fechaEntregaEstimada) ? new Date(fecha_entrega_estimada || fechaEntregaEstimada).toISOString() : null,
+        fecha_compra: (fecha_compra || fechaCompra) ? new Date(fecha_compra || fechaCompra) : new Date(),
+        fecha_entrega_estimada: (fecha_entrega_estimada || fechaEntregaEstimada) ? new Date(fecha_entrega_estimada || fechaEntregaEstimada) : null,
         tipo_compra: tipo_compra || tipoCompra,
         estado,
         empleado_nombre: empleado_nombre || empleadoNombre,
         notas
-      })
-      .select()
-      .single();
+      }
+    });
       
-    if (error) throw error;
     res.json(data);
   } catch (e) {
     console.error('Error creating compra', e);
@@ -69,8 +65,7 @@ router.post('/', requireAuth, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('Compra').delete().eq('id', id);
-    if (error) throw error;
+    await prisma.compra.delete({ where: { id } });
     res.json({ success: true });
   } catch (e) {
     console.error('Error deleting compra', e);

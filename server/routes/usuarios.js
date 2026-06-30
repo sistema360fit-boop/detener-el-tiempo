@@ -1,17 +1,24 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 // Get all users (for admin)
 router.get('/', requireAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('Usuario')
-      .select('id, email, nombre, rol, activo, createdAt');
-    if (error) throw error;
+    const data = await prisma.usuario.findMany({
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+        rol: true,
+        activo: true,
+        createdAt: true
+      }
+    });
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -37,13 +44,16 @@ router.put('/', requireAdmin, async (req, res) => {
       updateData.password = await bcrypt.hash(password, 10);
     }
     
-    const { data, error } = await supabase
-      .from('Usuario')
-      .update(updateData)
-      .eq('id', id)
-      .select('id, email, nombre, rol')
-      .single();
-    if (error) throw error;
+    const data = await prisma.usuario.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+        rol: true
+      }
+    });
     res.json(data);
   } catch (e) {
     console.error('Update user error', e);

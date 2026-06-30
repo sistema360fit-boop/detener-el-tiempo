@@ -1,4 +1,6 @@
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 /**
  * Explode an element recursively to find all base ingredients.
@@ -20,8 +22,9 @@ export async function explodirElemento(elementoId, cantidad, consolidado = {}, t
 
   // --- Helper functions for each entity type ---
   const buscarIngrediente = async () => {
-    const { data: ingrediente } = await supabase
-      .from('Ingrediente').select('*').eq('id', elementoId).maybeSingle();
+    const ingrediente = await prisma.ingrediente.findUnique({
+      where: { id: elementoId }
+    });
     if (ingrediente) {
       if (!consolidado[elementoId]) consolidado[elementoId] = 0;
       consolidado[elementoId] += qty;
@@ -32,14 +35,15 @@ export async function explodirElemento(elementoId, cantidad, consolidado = {}, t
   };
 
   const buscarRecetaPrimaria = async () => {
-    const { data: recetaPrimaria } = await supabase
-      .from('RecetaPrimaria')
-      .select('*, detalles:DetalleRecetaPrimaria(*)')
-      .eq('id', elementoId).maybeSingle();
+    const recetaPrimaria = await prisma.recetaPrimaria.findUnique({
+      where: { id: elementoId },
+      include: { detalles: true }
+    });
     if (recetaPrimaria) {
       const factor = parseFloat(recetaPrimaria.cantidadResultante) || 1;
       console.log(`[INVENTARIO] 🔵 RecetaPrimaria "${recetaPrimaria.nombre}" (factor=${factor})`);
       for (const detalle of recetaPrimaria.detalles) {
+        if (!detalle.ingredienteId) continue;
         const cantHijo = (qty * parseFloat(detalle.cantidad)) / factor;
         const subTipo = detalle.tipoElemento || null;
         console.log(`[INVENTARIO]   └─ Detalle: ${detalle.ingredienteId} (${subTipo || 'auto'}) × ${detalle.cantidad} / ${factor} = ${cantHijo}`);
@@ -51,14 +55,15 @@ export async function explodirElemento(elementoId, cantidad, consolidado = {}, t
   };
 
   const buscarRecetaSecundaria = async () => {
-    const { data: recetaSecundaria } = await supabase
-      .from('RecetaSecundaria')
-      .select('*, detalles:DetalleRecetaSecundaria(*)')
-      .eq('id', elementoId).maybeSingle();
+    const recetaSecundaria = await prisma.recetaSecundaria.findUnique({
+      where: { id: elementoId },
+      include: { detalles: true }
+    });
     if (recetaSecundaria) {
       const factor = parseFloat(recetaSecundaria.cantidadResultante) || 1;
       console.log(`[INVENTARIO] 🟣 RecetaSecundaria "${recetaSecundaria.nombre}" (factor=${factor})`);
       for (const detalle of recetaSecundaria.detalles) {
+        if (!detalle.elementoId) continue;
         const cantHijo = (qty * parseFloat(detalle.cantidad)) / factor;
         const subTipo = detalle.tipoElemento || null;
         console.log(`[INVENTARIO]   └─ Detalle: ${detalle.elementoId} (${subTipo || 'auto'}) × ${detalle.cantidad} / ${factor} = ${cantHijo}`);
@@ -70,14 +75,15 @@ export async function explodirElemento(elementoId, cantidad, consolidado = {}, t
   };
 
   const buscarPlato = async () => {
-    const { data: plato } = await supabase
-      .from('Plato')
-      .select('*, recetas:Receta(*)')
-      .eq('id', elementoId).maybeSingle();
+    const plato = await prisma.plato.findUnique({
+      where: { id: elementoId },
+      include: { recetas: true }
+    });
     if (plato) {
       console.log(`[INVENTARIO] 🟡 Plato "${plato.nombre}" con ${plato.recetas.length} componentes`);
       for (const receta of plato.recetas) {
-        const subId = receta.ingredienteId || receta.ingrediente_id;
+        const subId = receta.ingredienteId;
+        if (!subId) continue;
         const subQty = qty * parseFloat(receta.cantidad_requerida);
         const subTipo = receta.tipo || null;
         console.log(`[INVENTARIO]   └─ Receta: ${receta.ingredienteNombre || subId} (${subTipo || 'auto'}) × ${receta.cantidad_requerida} = ${subQty}`);
@@ -116,8 +122,9 @@ export async function descontarDelInventario(ingredienteId, cantidadTotal) {
     return;
   }
 
-  const { data: ingrediente } = await supabase
-    .from('Ingrediente').select('*').eq('id', ingredienteId).maybeSingle();
+  const ingrediente = await prisma.ingrediente.findUnique({
+    where: { id: ingredienteId }
+  });
 
   if (!ingrediente) {
     console.log(`[INVENTARIO] ⚠️ Ingrediente ${ingredienteId} no encontrado`);
@@ -131,23 +138,25 @@ export async function descontarDelInventario(ingredienteId, cantidadTotal) {
   
   console.log(`[INVENTARIO] 💸 Descontando "${ingrediente.nombre}": stock=${stockAnterior} - (${cantidadTotal} × factor ${factorConversion}) = ${nuevoStock}`);
   
-  await supabase.from('Ingrediente')
-    .update({ cantidad_disponible: nuevoStock })
-    .eq('id', ingredienteId);
+  await prisma.ingrediente.update({
+    where: { id: ingredienteId },
+    data: { cantidad_disponible: nuevoStock }
+  });
 
   // Crear alerta de stock mínimo si corresponde
   if (nuevoStock <= (ingrediente.cantidad_minima || 0)) {
-    const { data: existente } = await supabase
-      .from('AlertaStock').select('id')
-      .eq('ingredienteId', ingredienteId).limit(1).maybeSingle();
+    const existente = await prisma.alertaStock.findFirst({
+      where: { ingredienteId }
+    });
     
     if (!existente) {
-      await supabase.from('AlertaStock').insert({
-        id: crypto.randomUUID(),
-        ingredienteId,
-        ingredienteNombre: ingrediente.nombre,
-        cantidad_actual: nuevoStock,
-        cantidad_minima: ingrediente.cantidad_minima || 0
+      await prisma.alertaStock.create({
+        data: {
+          ingredienteId,
+          ingredienteNombre: ingrediente.nombre,
+          cantidad_actual: nuevoStock,
+          cantidad_minima: ingrediente.cantidad_minima || 0
+        }
       });
     }
   }
@@ -159,45 +168,56 @@ export async function descontarDelInventario(ingredienteId, cantidadTotal) {
 export async function recalcularCostosEnCascada(ingredienteId) {
   try {
     // 1. Obtener el ingrediente actualizado
-    const { data: ing } = await supabase.from('Ingrediente').select('*').eq('id', ingredienteId).maybeSingle();
+    const ing = await prisma.ingrediente.findUnique({
+      where: { id: ingredienteId }
+    });
     if (!ing) return;
 
     // 2. Actualizar DetalleRecetaPrimaria
-    const { data: detPrim } = await supabase.from('DetalleRecetaPrimaria').select('*').eq('ingredienteId', ingredienteId);
-    if (detPrim) {
+    const detPrim = await prisma.detalleRecetaPrimaria.findMany({
+      where: { ingredienteId }
+    });
+    if (detPrim.length > 0) {
       for (const d of detPrim) {
-        await supabase.from('DetalleRecetaPrimaria').update({
-          costo_ingrediente: d.cantidad * ing.costo_por_unidad
-        }).eq('id', d.id);
+        await prisma.detalleRecetaPrimaria.update({
+          where: { id: d.id },
+          data: { costoIngrediente: d.cantidad * (ing.costo_por_unidad || 0) }
+        });
         
         // Recalcular el costo de la receta primaria padre
-        await actualizarCostoRecetaPrimaria(d.receta_primaria_id);
+        await actualizarCostoRecetaPrimaria(d.recetaPrimariaId);
       }
     }
 
     // 3. Actualizar DetalleRecetaSecundaria (donde es ingrediente)
-    const { data: detSec } = await supabase.from('DetalleRecetaSecundaria').select('*').eq('elementoId', ingredienteId);
-    if (detSec) {
+    const detSec = await prisma.detalleRecetaSecundaria.findMany({
+      where: { elementoId: ingredienteId }
+    });
+    if (detSec.length > 0) {
       for (const d of detSec) {
-        await supabase.from('DetalleRecetaSecundaria').update({
-          costo_elemento: d.cantidad * ing.costo_por_unidad
-        }).eq('id', d.id);
+        await prisma.detalleRecetaSecundaria.update({
+          where: { id: d.id },
+          data: { costoElemento: d.cantidad * (ing.costo_por_unidad || 0) }
+        });
         
         // Recalcular el costo de la receta secundaria padre
-        await actualizarCostoRecetaSecundaria(d.receta_secundaria_id);
+        await actualizarCostoRecetaSecundaria(d.recetaSecundariaId);
       }
     }
 
     // 4. Actualizar Receta (Platos)
-    const { data: recetas } = await supabase.from('Receta').select('*').eq('ingredienteId', ingredienteId);
-    if (recetas) {
+    const recetas = await prisma.receta.findMany({
+      where: { ingredienteId }
+    });
+    if (recetas.length > 0) {
       for (const r of recetas) {
-        await supabase.from('Receta').update({
-          costo_ingrediente: r.cantidad_requerida * ing.costo_por_unidad
-        }).eq('id', r.id);
+        await prisma.receta.update({
+          where: { id: r.id },
+          data: { costo_ingrediente: r.cantidad_requerida * (ing.costo_por_unidad || 0) }
+        });
         
         // Recalcular el costo del plato padre
-        await actualizarCostoPlato(r.platoId || r.plato_id);
+        await actualizarCostoPlato(r.platoId);
       }
     }
   } catch (err) {
@@ -206,42 +226,65 @@ export async function recalcularCostosEnCascada(ingredienteId) {
 }
 
 async function actualizarCostoRecetaPrimaria(id) {
-  const { data: rp } = await supabase.from('RecetaPrimaria').select('*, detalles:DetalleRecetaPrimaria(*)').eq('id', id).maybeSingle();
+  const rp = await prisma.recetaPrimaria.findUnique({
+    where: { id },
+    include: { detalles: true }
+  });
   if (!rp) return;
-  const costoTotal = rp.detalles.reduce((acc, d) => acc + (d.costo_ingrediente || 0), 0);
+  const costoTotal = rp.detalles.reduce((acc, d) => acc + (d.costoIngrediente || 0), 0);
   const costoPorUnidad = rp.cantidadResultante > 0 ? costoTotal / rp.cantidadResultante : 0;
   
-  await supabase.from('RecetaPrimaria').update({ costoTotal, costoPorUnidad }).eq('id', id);
+  await prisma.recetaPrimaria.update({
+    where: { id },
+    data: { costoTotal, costoPorUnidad }
+  });
   
   // Si esta receta primaria se usa en otros platos o recetas secundarias, seguir la cadena...
   // (Añadir lógica similar si es necesario)
 }
 
 async function actualizarCostoRecetaSecundaria(id) {
-  const { data: rs } = await supabase.from('RecetaSecundaria').select('*, detalles:DetalleRecetaSecundaria(*)').eq('id', id).maybeSingle();
+  const rs = await prisma.recetaSecundaria.findUnique({
+    where: { id },
+    include: { detalles: true }
+  });
   if (!rs) return;
-  const costoTotal = rs.detalles.reduce((acc, d) => acc + (d.costo_elemento || 0), 0);
+  const costoTotal = rs.detalles.reduce((acc, d) => acc + (d.costoElemento || 0), 0);
   const costoPorUnidad = rs.cantidadResultante > 0 ? costoTotal / rs.cantidadResultante : 0;
   
-  await supabase.from('RecetaSecundaria').update({ costoTotal, costoPorUnidad }).eq('id', id);
+  await prisma.recetaSecundaria.update({
+    where: { id },
+    data: { costoTotal, costoPorUnidad }
+  });
   
   // Seguir la cadena...
   await actualizarPlatosQueUsanElemento(id, costoPorUnidad);
 }
 
 async function actualizarCostoPlato(id) {
-  const { data: plato } = await supabase.from('Plato').select('*, recetas:Receta(*)').eq('id', id).maybeSingle();
+  const plato = await prisma.plato.findUnique({
+    where: { id },
+    include: { recetas: true }
+  });
   if (!plato) return;
   const costoTotal = plato.recetas.reduce((acc, r) => acc + (r.costo_ingrediente || 0), 0);
-  await supabase.from('Plato').update({ costo_total: costoTotal, precio_sugerido: costoTotal * 1.7 }).eq('id', id);
+  await prisma.plato.update({
+    where: { id },
+    data: { costo_total: costoTotal, precio_sugerido: costoTotal * 1.7 }
+  });
 }
 
 async function actualizarPlatosQueUsanElemento(elementoId, nuevoCostoUnidad) {
-  const { data: recetas } = await supabase.from('Receta').select('*').eq('ingredienteId', elementoId);
-  if (recetas) {
+  const recetas = await prisma.receta.findMany({
+    where: { ingredienteId: elementoId }
+  });
+  if (recetas.length > 0) {
     for (const r of recetas) {
-      await supabase.from('Receta').update({ costo_ingrediente: r.cantidad_requerida * nuevoCostoUnidad }).eq('id', r.id);
-      await actualizarCostoPlato(r.platoId || r.plato_id);
+      await prisma.receta.update({
+        where: { id: r.id },
+        data: { costo_ingrediente: r.cantidad_requerida * nuevoCostoUnidad }
+      });
+      await actualizarCostoPlato(r.platoId);
     }
   }
 }

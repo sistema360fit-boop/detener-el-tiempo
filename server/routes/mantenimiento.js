@@ -1,8 +1,9 @@
 import express from 'express';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 /**
  * Obtiene un resumen de lo que se va a depurar (datos de hace más de 3 meses)
@@ -11,14 +12,37 @@ router.get('/resumen-depuracion', requireAdmin, async (req, res) => {
   try {
     const tresMesesAtras = new Date();
     tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
-    const fechaLimite = tresMesesAtras.toISOString();
+    const fechaLimite = tresMesesAtras;
 
     // Consultar totales con metodo_pago para separar monedas
     const [ventas, gastos, comandas, adelantos] = await Promise.all([
-      supabase.from('Venta').select('total_venta, metodo_pago, monto_original, moneda_original').lt('fecha_hora', fechaLimite).neq('estado', 'ARCHIVADO'),
-      supabase.from('Gasto').select('monto, metodo_pago, monto_original, moneda_original').lt('fecha', fechaLimite).neq('estado', 'ARCHIVADO'),
-      supabase.from('Comanda').select('total_comanda').lt('fecha_apertura', fechaLimite),
-      supabase.from('Adelanto').select('monto, metodo_pago, monto_original, moneda_original').lt('fecha', fechaLimite).neq('estado', 'ARCHIVADO')
+      prisma.venta.findMany({
+        where: {
+          fecha_hora: { lt: fechaLimite },
+          estado: { not: 'ARCHIVADO' }
+        },
+        select: { total_venta: true, metodo_pago: true, monto_original: true, moneda_original: true }
+      }),
+      prisma.gasto.findMany({
+        where: {
+          fecha: { lt: fechaLimite },
+          estado: { not: 'ARCHIVADO' }
+        },
+        select: { monto: true, metodo_pago: true, monto_original: true, moneda_original: true }
+      }),
+      prisma.comanda.findMany({
+        where: {
+          fecha_apertura: { lt: fechaLimite }
+        },
+        select: { total_comanda: true }
+      }),
+      prisma.adelanto.findMany({
+        where: {
+          fecha: { lt: fechaLimite },
+          estado: { not: 'ARCHIVADO' }
+        },
+        select: { monto: true, metodo_pago: true, monto_original: true, moneda_original: true }
+      })
     ]);
 
     const esBs = (m) => m && m.endsWith('_bs');
@@ -26,29 +50,26 @@ router.get('/resumen-depuracion', requireAdmin, async (req, res) => {
     const esUSD = (m) => !esBs(m) && !esCOP(m);
 
     // Ventas separadas
-    const ventasData = ventas.data || [];
-    const ventasUSD = ventasData.filter(v => esUSD(v.metodo_pago)).reduce((s, v) => s + (v.total_venta || 0), 0);
-    const ventasBs = ventasData.filter(v => esBs(v.metodo_pago)).reduce((s, v) => s + (v.monto_original || v.total_venta || 0), 0);
+    const ventasUSD = ventas.filter(v => esUSD(v.metodo_pago)).reduce((s, v) => s + (v.total_venta || 0), 0);
+    const ventasBs = ventas.filter(v => esBs(v.metodo_pago)).reduce((s, v) => s + (v.monto_original || v.total_venta || 0), 0);
 
     // Gastos separados
-    const gastosData = gastos.data || [];
-    const gastosUSD = gastosData.filter(g => esUSD(g.metodo_pago)).reduce((s, g) => s + (g.monto || 0), 0);
-    const gastosBs = gastosData.filter(g => esBs(g.metodo_pago)).reduce((s, g) => s + (g.monto_original || g.monto || 0), 0);
+    const gastosUSD = gastos.filter(g => esUSD(g.metodo_pago)).reduce((s, g) => s + (g.monto || 0), 0);
+    const gastosBs = gastos.filter(g => esBs(g.metodo_pago)).reduce((s, g) => s + (g.monto_original || g.monto || 0), 0);
 
     // Adelantos separados
-    const adelantosData = adelantos.data || [];
-    const adelantosUSD = adelantosData.filter(a => esUSD(a.metodo_pago)).reduce((s, a) => s + (a.monto || 0), 0);
-    const adelantosBs = adelantosData.filter(a => esBs(a.metodo_pago)).reduce((s, a) => s + (a.monto_original || a.monto || 0), 0);
+    const adelantosUSD = adelantos.filter(a => esUSD(a.metodo_pago)).reduce((s, a) => s + (a.monto || 0), 0);
+    const adelantosBs = adelantos.filter(a => esBs(a.metodo_pago)).reduce((s, a) => s + (a.monto_original || a.monto || 0), 0);
 
-    const totalComandas = (comandas.data || []).reduce((acc, c) => acc + (c.total_comanda || 0), 0);
+    const totalComandas = comandas.reduce((acc, c) => acc + (c.total_comanda || 0), 0);
 
     res.json({
-      fechaLimite,
+      fechaLimite: fechaLimite.toISOString(),
       conteos: {
-        ventas: ventasData.length,
-        gastos: gastosData.length,
-        comandas: comandas.data?.length || 0,
-        adelantos: adelantosData.length
+        ventas: ventas.length,
+        gastos: gastos.length,
+        comandas: comandas.length,
+        adelantos: adelantos.length
       },
       totales: {
         ventasUSD,
@@ -80,36 +101,38 @@ router.post('/ejecutar-depuracion', requireAdmin, async (req, res) => {
     const { fechaLimite } = req.body;
     if (!fechaLimite) return res.status(400).json({ error: 'Se requiere fechaLimite' });
 
-    // 1. Borrar detalles primero (por integridad referencial si no hay cascade)
-    // Nota: Dependiendo de tu configuración de Supabase/Postgres, 
-    // podrías necesitar borrar DetalleVenta antes que Venta si no hay ON DELETE CASCADE.
-    
-    // Suponiendo que necesitamos borrar detalles manualmente:
-    const { data: vIds } = await supabase.from('Venta').select('id').lt('fecha_hora', fechaLimite);
-    if (vIds && vIds.length > 0) {
-      await supabase.from('DetalleVenta').delete().in('ventaId', vIds.map(v => v.id));
-    }
+    const fechaLimitDate = new Date(fechaLimite);
 
-    const { data: cIds } = await supabase.from('Comanda').select('id').lt('fecha_apertura', fechaLimite);
-    if (cIds && cIds.length > 0) {
-      await supabase.from('DetalleComanda').delete().in('comandaId', cIds.map(c => c.id));
-    }
+    await prisma.$transaction(async (tx) => {
+      // 1. Borrar detalles primero
+      const vIds = await tx.venta.findMany({
+        where: { fecha_hora: { lt: fechaLimitDate } },
+        select: { id: true }
+      });
+      if (vIds.length > 0) {
+        await tx.detalleVenta.deleteMany({
+          where: { ventaId: { in: vIds.map(v => v.id) } }
+        });
+      }
 
-    // 2. Borrar maestros
-    const results = await Promise.all([
-      supabase.from('Venta').delete().lt('fecha_hora', fechaLimite),
-      supabase.from('Gasto').delete().lt('fecha', fechaLimite),
-      supabase.from('Comanda').delete().lt('fecha_apertura', fechaLimite),
-      supabase.from('Adelanto').delete().lt('fecha', fechaLimite),
-      supabase.from('AlertaStock').delete().lt('creadoEn', fechaLimite),
-      supabase.from('PagoMixto').delete().lt('fecha', fechaLimite)
-    ]);
+      const cIds = await tx.comanda.findMany({
+        where: { fecha_apertura: { lt: fechaLimitDate } },
+        select: { id: true }
+      });
+      if (cIds.length > 0) {
+        await tx.detalleComanda.deleteMany({
+          where: { comandaId: { in: cIds.map(c => c.id) } }
+        });
+      }
 
-    const errors = results.filter(r => r.error).map(r => r.error.message);
-
-    if (errors.length > 0) {
-      return res.status(500).json({ error: 'Algunos errores ocurrieron', details: errors });
-    }
+      // 2. Borrar maestros
+      await tx.venta.deleteMany({ where: { fecha_hora: { lt: fechaLimitDate } } });
+      await tx.gasto.deleteMany({ where: { fecha: { lt: fechaLimitDate } } });
+      await tx.comanda.deleteMany({ where: { fecha_apertura: { lt: fechaLimitDate } } });
+      await tx.adelanto.deleteMany({ where: { fecha: { lt: fechaLimitDate } } });
+      await tx.alertaStock.deleteMany({ where: { creadoEn: { lt: fechaLimitDate } } });
+      await tx.pagoMixto.deleteMany({ where: { fecha: { lt: fechaLimitDate } } });
+    });
 
     res.json({ ok: true, message: 'Depuración completada exitosamente' });
   } catch (e) {

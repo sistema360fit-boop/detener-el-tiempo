@@ -1,13 +1,13 @@
 import express from 'express';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase.from('CategoriaGasto').select('*');
-    if (error) throw error;
+    const data = await prisma.categoriaGasto.findMany();
     res.json(data);
   } catch (e) {
     console.error('Get categorias error', e);
@@ -18,12 +18,9 @@ router.get('/', requireAuth, async (req, res) => {
 router.post('/', requireAdmin, async (req, res) => {
   try {
     const { nombre, descripcion } = req.body;
-    const { data, error } = await supabase
-      .from('CategoriaGasto')
-      .insert({ id: crypto.randomUUID(), nombre, descripcion })
-      .select()
-      .single();
-    if (error) throw error;
+    const data = await prisma.categoriaGasto.create({
+      data: { nombre, descripcion }
+    });
     res.json(data);
   } catch (e) {
     console.error('Create categoria error', e);
@@ -35,13 +32,10 @@ router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, descripcion } = req.body;
-    const { data, error } = await supabase
-      .from('CategoriaGasto')
-      .update({ nombre, descripcion })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
+    const data = await prisma.categoriaGasto.update({
+      where: { id },
+      data: { nombre, descripcion }
+    });
     res.json(data);
   } catch (e) {
     console.error('Update categoria error', e);
@@ -52,8 +46,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('CategoriaGasto').delete().eq('id', id);
-    if (error) throw error;
+    await prisma.categoriaGasto.delete({ where: { id } });
     res.json({ success: true });
   } catch (e) {
     console.error('Delete categoria error', e);

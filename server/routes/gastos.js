@@ -1,17 +1,19 @@
 import express from 'express';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('Gasto').select('*')
-      .neq('estado', 'ARCHIVADO')
-      .order('fecha', { ascending: false })
-      .limit(1000);
-    if (error) throw error;
+    const data = await prisma.gasto.findMany({
+      where: {
+        estado: { not: 'ARCHIVADO' }
+      },
+      orderBy: { fecha: 'desc' },
+      take: 1000
+    });
     res.json(data);
   } catch (e) {
     console.error('Error fetching gastos', e);
@@ -22,21 +24,17 @@ router.get('/', requireAuth, async (req, res) => {
 router.post('/', requireAdmin, async (req, res) => {
   try {
     const { descripcion, monto, categoria, categoriaNombre, fecha, metodo_pago, metodoPago, monto_original, moneda_original } = req.body;
-    const { data, error } = await supabase
-      .from('Gasto')
-      .insert({
-        id: crypto.randomUUID(),
+    const data = await prisma.gasto.create({
+      data: {
         descripcion,
-        monto: monto || 0,
-        monto_original: monto_original || monto || 0,
+        monto: parseFloat(monto) || 0,
+        monto_original: parseFloat(monto_original || monto) || 0,
         moneda_original: moneda_original || 'usd',
         metodo_pago: metodo_pago || metodoPago || 'efectivo_usd',
         categoriaNombre: categoriaNombre || categoria || null,
-        fecha: fecha ? new Date(fecha).toISOString() : new Date().toISOString()
-      })
-      .select()
-      .single();
-    if (error) throw error;
+        fecha: fecha ? new Date(fecha) : new Date()
+      }
+    });
     res.json(data);
   } catch (e) {
     console.error('Error creating gasto', e);
@@ -47,8 +45,7 @@ router.post('/', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from('Gasto').delete().eq('id', id);
-    if (error) throw error;
+    await prisma.gasto.delete({ where: { id } });
     res.json({ success: true });
   } catch (e) {
     console.error('Error deleting gasto', e);

@@ -1,14 +1,15 @@
 import express from 'express';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth } from '../middlewares/auth.js';
-import crypto from 'crypto';
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase.from('AlertaStock').select('*').order('creadoEn', { ascending: false });
-    if (error) throw error;
+    const data = await prisma.alertaStock.findMany({
+      orderBy: { creadoEn: 'desc' }
+    });
     res.json(data);
   } catch (e) {
     console.error('Get alertas stock error', e);
@@ -25,20 +26,17 @@ router.post('/', requireAuth, async (req, res) => {
       fecha_alerta, resuelta 
     } = req.body;
     
-    const id = req.body.id || crypto.randomUUID();
-    const dataToInsert = {
-      id,
-      ingredienteId: ingredienteId || ingrediente_id,
-      ingredienteNombre: ingredienteNombre || nombre_ingrediente,
-      cantidad_actual,
-      cantidad_minima,
-      creadoEn: fecha_alerta || req.body.creadoEn || new Date().toISOString(),
-      resuelta: resuelta || false
-    };
-
-    const { data, error } = await supabase.from('AlertaStock').insert(dataToInsert).select();
-    if (error) throw error;
-    res.status(201).json(data[0]);
+    const data = await prisma.alertaStock.create({
+      data: {
+        ingredienteId: ingredienteId || ingrediente_id,
+        ingredienteNombre: ingredienteNombre || nombre_ingrediente,
+        cantidad_actual: parseFloat(cantidad_actual) || 0,
+        cantidad_minima: parseFloat(cantidad_minima) || 0,
+        creadoEn: fecha_alerta || req.body.creadoEn ? new Date(fecha_alerta || req.body.creadoEn) : new Date(),
+        resuelta: resuelta || false
+      }
+    });
+    res.status(201).json(data);
   } catch (e) {
     console.error('Post alerta stock error', e);
     res.status(500).json({ error: e.message });
@@ -50,14 +48,12 @@ router.put('/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     const { resuelta } = req.body;
     
-    const { data, error } = await supabase
-      .from('AlertaStock')
-      .update({ resuelta })
-      .eq('id', id)
-      .select();
+    const data = await prisma.alertaStock.update({
+      where: { id },
+      data: { resuelta }
+    });
       
-    if (error) throw error;
-    res.json(data[0]);
+    res.json(data);
   } catch (e) {
     console.error('Put alerta stock error', e);
     res.status(500).json({ error: e.message });
