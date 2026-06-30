@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -32,22 +34,18 @@ export const requireAuth = async (req, res, next) => {
     
     let usuario = null;
     
-    const { data: empleado } = await supabase
-      .from('Empleado')
-      .select('*')
-      .eq('id', decoded.id)
-      .single();
+    const empleado = await prisma.empleado.findUnique({
+      where: { id: decoded.id }
+    });
     
     if (empleado) {
       usuario = empleado;
     }
     
     if (!usuario) {
-      const { data: user } = await supabase
-        .from('Usuario')
-        .select('*')
-        .eq('id', decoded.id)
-        .single();
+      const user = await prisma.usuario.findUnique({
+        where: { id: decoded.id }
+      });
       
       if (user) {
         usuario = user;

@@ -1,10 +1,12 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import supabase from '../config/supabase.js';
+import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
+const prisma = new PrismaClient();
+
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = '24h';
 
@@ -46,11 +48,15 @@ router.post('/register', requireAdmin, async (req, res) => {
     const usuarioLower = (usuario || emailToUse).toLowerCase();
     
     // Verificar duplicados en ambas tablas
-    const { data: existingUsuario } = await supabase
-      .from('Usuario').select('id').eq('email', emailLower).maybeSingle();
+    const existingUsuario = await prisma.usuario.findUnique({
+      where: { email: emailLower },
+      select: { id: true }
+    });
     
-    const { data: existingEmpleado } = await supabase
-      .from('Empleado').select('id').eq('usuario', usuarioLower).maybeSingle();
+    const existingEmpleado = await prisma.empleado.findUnique({
+      where: { usuario: usuarioLower },
+      select: { id: true }
+    });
     
     if (existingUsuario) {
       return res.status(400).json({ error: 'Ya existe un usuario con ese email en el sistema' });
@@ -62,51 +68,51 @@ router.post('/register', requireAdmin, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     // Intentar crear en Usuario
-    const { data: usuarioCreado, error: userError } = await supabase
-      .from('Usuario')
-      .insert({
-        id: crypto.randomUUID(),
-        email: emailLower,
-        password: hashedPassword,
-        nombre,
-        rol: rol || 'administrador',
-      })
-      .select()
-      .single();
-    
-    if (userError) {
-      // Si falla, intentar en Empleado
-      const { data: empleadoCreado, error: empError } = await supabase
-        .from('Empleado')
-        .insert({
-          id: crypto.randomUUID(),
-          nombre,
-          usuario: usuarioLower,
+    try {
+      const usuarioCreado = await prisma.usuario.create({
+        data: {
+          email: emailLower,
           password: hashedPassword,
-          rol: rol || 'mesero',
-          activo: true
-        })
-        .select()
-        .single();
-      
-      if (empError) {
+          nombre,
+          rol: rol || 'administrador',
+        },
+        select: {
+          id: true,
+          email: true,
+          nombre: true,
+          rol: true
+        }
+      });
+      return res.json(usuarioCreado);
+    } catch (userError) {
+      // Si falla, intentar en Empleado
+      try {
+        const empleadoCreado = await prisma.empleado.create({
+          data: {
+            nombre,
+            usuario: usuarioLower,
+            password: hashedPassword,
+            rol: rol || 'mesero',
+            activo: true
+          },
+          select: {
+            id: true,
+            usuario: true,
+            nombre: true,
+            rol: true
+          }
+        });
+        
+        return res.json({
+          id: empleadoCreado.id,
+          email: empleadoCreado.usuario,
+          nombre: empleadoCreado.nombre,
+          rol: empleadoCreado.rol
+        });
+      } catch (empError) {
         return res.status(500).json({ error: 'Error al crear usuario: ' + empError.message });
       }
-      
-      return res.json({
-        id: empleadoCreado.id,
-        email: empleadoCreado.usuario,
-        nombre: empleadoCreado.nombre,
-        rol: empleadoCreado.rol
-      });
     }
-    
-    res.json({
-      id: usuarioCreado.id,
-      email: usuarioCreado.email,
-      nombre: usuarioCreado.nombre,
-      rol: usuarioCreado.rol
-    });
   } catch (e) {
     console.error('Register error', e);
     res.status(500).json({ error: e.message });
@@ -140,13 +146,15 @@ router.post('/login', async (req, res) => {
     }
     
     // Buscar en Usuario
-    let { data: user } = await supabase
-      .from('Usuario').select('*').eq('email', usuario.toLowerCase()).maybeSingle();
+    let user = await prisma.usuario.findUnique({
+      where: { email: usuario.toLowerCase() }
+    });
     
     if (!user) {
       // Buscar en Empleado
-      const { data: empleado } = await supabase
-        .from('Empleado').select('*').eq('usuario', usuario.toLowerCase()).maybeSingle();
+      const empleado = await prisma.empleado.findUnique({
+        where: { usuario: usuario.toLowerCase() }
+      });
       user = empleado;
       
       if (user && user.activo === false) {
