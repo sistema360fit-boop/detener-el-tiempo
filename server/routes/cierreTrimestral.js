@@ -1,10 +1,9 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { requireAdmin } from '../middlewares/auth.js';
+import prisma from '../prisma.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 router.post('/ejecutar', requireAdmin, async (req, res) => {
   try {

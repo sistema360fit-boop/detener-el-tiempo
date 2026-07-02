@@ -1,9 +1,8 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
 import { requireAdmin } from '../middlewares/auth.js';
+import prisma from '../prisma.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 /**
  * Obtiene un resumen de lo que se va a depurar (datos de hace más de 3 meses)

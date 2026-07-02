@@ -1,12 +1,11 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
 import { explodirElemento, descontarDelInventario } from '../services/inventory.js';
 import { broadcastCocina } from '../services/cocinaEvents.js';
+import prisma from '../prisma.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Obtener todas las comandas
 router.get('/', requireAuth, async (req, res) => {

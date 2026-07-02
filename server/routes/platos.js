@@ -1,9 +1,8 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
+import prisma from '../prisma.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Helper: extraer valor de campo con múltiples nombres posibles
 const pick = (obj, ...keys) => {

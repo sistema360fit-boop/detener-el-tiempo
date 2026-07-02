@@ -9,8 +9,6 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
 // Prisma Client for stats
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
 
 // Importar configuración y middlewares
 import { requireAuth, requireAdmin } from './middlewares/auth.js';
@@ -42,6 +40,7 @@ import cierreTrimestralRoutes from './routes/cierreTrimestral.js';
 import comprasRoutes from './routes/compras.js';
 import nominaRoutes from './routes/nomina.js';
 import { addClient } from './services/cocinaEvents.js';
+import prisma from './prisma.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

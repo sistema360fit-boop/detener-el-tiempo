@@ -1,11 +1,10 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
+import prisma from '../prisma.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = '24h';
@@ -169,6 +168,10 @@ router.post('/login', async (req, res) => {
     }
     
     const storedPassword = user.password || user.contrasena;
+    if (!storedPassword) {
+      return res.status(401).json({ error: 'El usuario no tiene contraseña configurada' });
+    }
+    
     const valid = await bcrypt.compare(password, storedPassword);
     if (!valid) {
       return res.status(401).json({ error: 'Contraseña incorrecta' });

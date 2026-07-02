@@ -1,9 +1,8 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middlewares/auth.js';
+import prisma from '../prisma.js';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // ─── GET /api/nomina ── Listar todas las nóminas ─────────────────────────
 router.get('/', requireAuth, async (req, res) => {
