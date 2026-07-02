@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { Slot } from "@radix-ui/react-slot"
 
 const SidebarContext = React.createContext({ collapsed: false, toggle: () => {} })
 
@@ -85,7 +86,7 @@ export function SidebarTrigger({ className, ...props }) {
 }
 
 export function SidebarMenuButton({ className, isActive, asChild, tooltip, ...props }) {
-  const Comp = asChild ? "span" : "button"
+  const Comp = asChild ? Slot : "button"
   return (
     <Comp
       data-active={isActive}
