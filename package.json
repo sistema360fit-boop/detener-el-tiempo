@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@base44/vite-plugin": "^0.2.5",
+    "@capacitor/core": "^8.4.1",
     "@hello-pangea/dnd": "^17.0.0",
     "@hookform/resolvers": "^4.1.2",
     "@neondatabase/serverless": "^1.0.2",
@@ -103,6 +104,8 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
     "@eslint/js": "^9.19.0",
     "@prisma/client": "^4.16.2",
     "@types/node": "^22.13.5",

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Stop Time Sushi</string>
+    <string name="title_activity_main">Stop Time Sushi</string>
+    <string name="package_name">com.stoptime.app</string>
+    <string name="custom_url_scheme">com.stoptime.app</string>
+</resources>
