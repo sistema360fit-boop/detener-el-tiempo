@@ -3,7 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
+    "electron:start": "electron .",
+    "build:exe": "vite build && electron-builder",
     "dev": "vite",
     "tunnel": "npx localtunnel --port 4000",
     "start": "node server/index.js",
@@ -26,6 +29,15 @@
   },
   "prisma": {
     "seed": "node prisma/seed.js"
+  },
+  "build": {
+    "appId": "com.stoptime.app",
+    "win": {
+      "target": "nsis"
+    },
+    "directories": {
+      "buildResources": "public"
+    }
   },
   "dependencies": {
     "@base44/vite-plugin": "^0.2.5",
@@ -113,7 +125,9 @@
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "concurrently": "^9.2.1",
+    "concurrently": "^9.2.3",
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.19.0",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.0.0",

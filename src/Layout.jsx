@@ -86,6 +86,12 @@ const navigationItems = [
     roles: ['administrador']
   },
   {
+    title: "Menú Ejecutivo",
+    url: createPageUrl("MenuDelDia"),
+    icon: UtensilsCrossed,
+    roles: ['administrador']
+  },
+  {
     title: "Compras",
     url: createPageUrl("ComprasIngredientes"),
     icon: ShoppingCart,

@@ -17,6 +17,7 @@ import ComprasIngredientes from './pages/ComprasIngredientes';
 import ConfiguracionRetencion from './pages/ConfiguracionRetencion';
 import CuentasPorCobrar from './pages/CuentasPorCobrar';
 import Dashboard from './pages/Dashboard';
+import MenuDelDia from './pages/MenuDelDia';
 
 import EstadoCuentaDetalle from './pages/EstadoCuentaDetalle';
 import EstadosCuenta from './pages/EstadosCuenta';
@@ -52,6 +53,7 @@ export const PAGES = {
     "ConfiguracionRetencion": ConfiguracionRetencion,
     "CuentasPorCobrar": CuentasPorCobrar,
     "Dashboard": Dashboard,
+    "MenuDelDia": MenuDelDia,
 
     "EstadoCuentaDetalle": EstadoCuentaDetalle,
     "EstadosCuenta": EstadosCuenta,
