@@ -32,11 +32,18 @@
   },
   "build": {
     "appId": "com.stoptime.app",
+    "productName": "base44-app",
+    "directories": {
+      "output": "dist",
+      "buildResources": "public"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
     "win": {
       "target": "nsis"
-    },
-    "directories": {
-      "buildResources": "public"
     }
   },
   "dependencies": {

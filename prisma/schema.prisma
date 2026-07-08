@@ -372,3 +372,23 @@ model ReporteTrimestral {
   createdAt           DateTime @default(now())
 }
 
+model MenuDelDia {
+  id        String   @id @default(uuid())
+  fecha     String   @unique
+  precio    Float    @default(0)
+  notas     String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  items     MenuDelDiaItem[]
+}
+
+model MenuDelDiaItem {
+  id          String     @id @default(uuid())
+  menuId      String
+  menu        MenuDelDia @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  categoria   String     @default("Principal")
+  nombre      String
+  descripcion String?
+  orden       Int        @default(0)
+}
+
