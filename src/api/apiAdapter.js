@@ -2,7 +2,8 @@
 // Adaptador que usa los endpoints del servidor Express (SQLite/Prisma)
 // en lugar de localStorage para persistencia real de datos
 
-const API_BASE = ''; // Mismo dominio, usa proxy o ruta relativa
+// Usa variable de entorno para APK/EXE, de lo contrario ruta relativa para Web
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 // UUID compatible con HTTP (sin contexto seguro)
 const genUUID = () =>
@@ -26,7 +27,7 @@ const serverFetch = async (endpoint, options = {}) => {
       return [];
     }
     
-    const url = `/api${endpoint}`;
+    const url = `${API_BASE}/api${endpoint}`;
     
     const response = await fetch(url, {
       ...options,

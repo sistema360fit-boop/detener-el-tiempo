@@ -29,6 +29,7 @@ export default function ComandaForm({ platos, empleados = [], onSubmit, onCancel
   const [openCombobox, setOpenCombobox] = useState(false);
   const [varianteSeleccionada, setVarianteSeleccionada] = useState("normal"); // normal, 6, 12
 
+
   const platosDisponibles = platos.filter(p => {
     if (tipoMovimiento === 'MERMA') return p.permitir_merma;
     if (tipoMovimiento === 'CREDITO_EMPLEADO') return p.permitir_credito_empleado;
@@ -240,6 +241,7 @@ export default function ComandaForm({ platos, empleados = [], onSubmit, onCancel
               <span>🍽️</span> Agregar Platos a la Comanda
             </h3>
             
+
             <Card className="border-0 bg-amber-50/20 rounded-[2rem] overflow-hidden">
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">

@@ -31,7 +31,7 @@ export default function ConfiguracionRetencion() {
     queryKey: ['reportes-trimestrales'],
     queryFn: async () => {
       const token = localStorage.getItem('jwt_token') || localStorage.getItem('token');
-      const res = await fetch('/api/cierre-trimestral', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/cierre-trimestral`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -47,7 +47,7 @@ export default function ConfiguracionRetencion() {
     try {
       const token = localStorage.getItem('jwt_token') || localStorage.getItem('token');
       
-      const response = await fetch('/api/cierre-trimestral/ejecutar', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/cierre-trimestral/ejecutar`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

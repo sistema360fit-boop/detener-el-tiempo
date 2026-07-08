@@ -91,7 +91,7 @@ export default function Comandas() {
       console.log('Payload a enviar:', payload);
 
       // Since we modified the backend custom route, we can POST to /api/comandas
-      const result = await fetch('/api/comandas', {
+      const result = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/comandas`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ export default function Comandas() {
   const agregarPlatosMutation = useMutation({
     mutationFn: async ({ comandaId, platosNuevos, totalActual }) => {
       // Usar endpoint dedicado que notifica a la cocina en tiempo real
-      const result = await fetch(`/api/comandas/${comandaId}/detalles`, {
+      const result = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/comandas/${comandaId}/detalles`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

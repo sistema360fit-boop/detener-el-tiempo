@@ -245,7 +245,7 @@ function useCocinaSSE(onEvent) {
     if (!token) return;
 
     // EventSource no soporta headers → pasamos token como query param
-    const es = new EventSource(`/api/cocina/stream?token=${encodeURIComponent(token)}`);
+    const es = new EventSource(`${import.meta.env.VITE_API_URL || ''}/api/cocina/stream?token=${encodeURIComponent(token)}`);
     eventSourceRef.current = es;
 
     es.onopen = () => {
