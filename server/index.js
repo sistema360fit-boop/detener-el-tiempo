@@ -39,6 +39,7 @@ import pagosCuentasRoutes from './routes/pagosCuentas.js';
 import cierreTrimestralRoutes from './routes/cierreTrimestral.js';
 import comprasRoutes from './routes/compras.js';
 import nominaRoutes from './routes/nomina.js';
+import menuDelDiaRoutes from './routes/menuDelDia.js';
 import { addClient } from './services/cocinaEvents.js';
 import prisma from './prisma.js';
 
@@ -95,6 +96,7 @@ app.use('/api/pagocuentaporcobrars', pagosCuentasRoutes);
 app.use('/api/cierre-trimestral', cierreTrimestralRoutes);
 app.use('/api/compras', comprasRoutes);
 app.use('/api/nomina', nominaRoutes);
+app.use('/api/menu-del-dia', menuDelDiaRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
