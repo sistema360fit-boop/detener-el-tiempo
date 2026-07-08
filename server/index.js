@@ -57,7 +57,10 @@ app.use(helmet({
   },
 }));
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*', // En producción especificar dominios
+  origin: function (origin, callback) {
+    // Permitir cualquier origen y reflejarlo para que credentials: true funcione
+    callback(null, true);
+  },
   credentials: true
 }));
 app.use(express.json());
